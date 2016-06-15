@@ -23,6 +23,7 @@ from mininet.net import Mininet, CLI
 from mininet.node import OVSSwitch, RemoteController
 from mininet.topo import LinearTopo
 from mininet.log import output, warn
+from mininet.term import makeTerm, runX11
 
 from random import randint
 
@@ -119,26 +120,34 @@ def mobilityTest():
     net.start()
     printConnections(net.switches)
     print '* Testing network'
-    net.pingAll()
+    # net.pingAll()
     print '* Identifying switch interface for h1'
-    h1, old = net.get('h1', 's1')
+    h1, h2, old = net.get('h1', 'h2', 's1')
+    # runX11(h1, "vlc-wrapper -vvv /home/mininet/360x240_2mb.mp4 -sout '#transcode{vcodec=mp4v,acodec=mpga,vb=800,ab=128}:standard{access=http,mux=ogg,dst=:8080}' --loop --sout-keep")
+    makeTerm(h1, title='Streamer')
+    makeTerm(h2, title='Client')
+    # makeTerm(h2)
+    print "After H1 Terminal"
+
+    CLI(net)
 
     # Loop forever to test the controller (Stop with Ctrl+C)
-    while True:
-        for s in 2, 3, 1:
-            new = net['s%d' % s]
-            port = randint(10, 20)
-            print '* Moving', h1, 'from', old, 'to', new, 'port', port
-            hintf, sintf = moveHost(h1, old, new, newPort=port)
-            print '*', hintf, 'is now connected to', sintf
-            print '* Clearing out old flows'
-            for sw in net.switches:
-                sw.dpctl('del-flows')
-            print '* New network:'
-            printConnections(net.switches)
-            print '* Testing connectivity:'
-            net.pingAll()
-            old = new
+#    while True:
+#        pass
+#        for s in 2, 3, 1:
+#            new = net['s%d' % s]
+#            port = randint(10, 20)
+#            print '* Moving', h1, 'from', old, 'to', new, 'port', port
+#            hintf, sintf = moveHost(h1, old, new, newPort=port)
+#            print '*', hintf, 'is now connected to', sintf
+#            print '* Clearing out old flows'
+#            for sw in net.switches:
+#                sw.dpctl('del-flows')
+#            print '* New network:'
+#            printConnections(net.switches)
+#            print '* Testing connectivity:'
+#            net.pingAll()
+#            old = new
     net.stop()
 
 if __name__ == '__main__':

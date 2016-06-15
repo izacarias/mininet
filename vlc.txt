@@ -1,0 +1,7 @@
+Servidor (Comando xTerm):
+---------
+vlc-wrapper -I dummy -vvv 360x240_2mb.mp4 --sout '#transcode{vcodec=mp4v,acodec=none,vb=800,ab=128}:standard{access=http,mux=ogg,dst=10.0.0.1:8080}' --loop --sout-keep
+
+Cliente (Comando xTerm):
+--------
+vlc-wrapper http://localhost:8080
