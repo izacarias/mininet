@@ -122,23 +122,23 @@ def mobilityTest():
     net.pingAll()
     print '* Identifying switch interface for h1'
     h1, old = net.get('h1', 's1')
-    ## Inicio do Stram
 
-    for s in 2, 3, 1:
-        new = net['s%d' % s]
-        port = randint(10, 20)
-        print '* Moving', h1, 'from', old, 'to', new, 'port', port
-        hintf, sintf = moveHost(h1, old, new, newPort=port)
-        print '*', hintf, 'is now connected to', sintf
-        print '* Clearing out old flows'
-        for sw in net.switches:
-            sw.dpctl('del-flows')
-        print '* New network:'
-        printConnections(net.switches)
-        print '* Testing connectivity:'
-        net.pingAll()
-        old = new
-    CLI(net)
+    # Loop forever to test the controller (Stop with Ctrl+C)
+    while True:
+        for s in 2, 3, 1:
+            new = net['s%d' % s]
+            port = randint(10, 20)
+            print '* Moving', h1, 'from', old, 'to', new, 'port', port
+            hintf, sintf = moveHost(h1, old, new, newPort=port)
+            print '*', hintf, 'is now connected to', sintf
+            print '* Clearing out old flows'
+            for sw in net.switches:
+                sw.dpctl('del-flows')
+            print '* New network:'
+            printConnections(net.switches)
+            print '* Testing connectivity:'
+            net.pingAll()
+            old = new
     net.stop()
 
 if __name__ == '__main__':
