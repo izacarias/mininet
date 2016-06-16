@@ -26,6 +26,7 @@ from mininet.log import output, warn
 from mininet.term import makeTerm, runX11
 
 from random import randint
+import time
 
 
 class MobilitySwitch(OVSSwitch):
@@ -107,6 +108,27 @@ def moveHost(host, oldSwitch, newSwitch, newPort=None):
     return hintf, sintf
 
 
+def vlcCommand(type=''):
+    baseCommand = 'vlc-wrapper '
+    if (type == 'server'):
+        # media_file = '/home/mininet/720x480_5mb.mp4'
+        media_file = '/home/mininet/360x240_2mb.mp4'
+        # baseCommand += '-vvv '
+        baseCommand += media_file + ' '
+        baseCommand += '-I dummy '
+        baseCommand += '--sout '
+        baseCommand += "'#transcode{vcodec=mp4v,acodec=none,vb=800,ab=128}"
+        baseCommand += ":standard{access=http,mux=ogg,dst=:8080}' "
+        baseCommand += '--loop '
+        baseCommand += '--sout-keep '
+        return baseCommand
+
+    if (type == 'client'):
+        baseCommand += 'http://10.0.0.1:8080 '
+        baseCommand += '--no-audio'
+        return baseCommand
+
+
 def mobilityTest():
     "A simple test of mobility"
 
@@ -123,10 +145,11 @@ def mobilityTest():
     # net.pingAll()
     print '* Identifying switch interface for h1'
     h1, h2, old = net.get('h1', 'h2', 's1')
-    # runX11(h1, "vlc-wrapper -vvv /home/mininet/360x240_2mb.mp4 -sout '#transcode{vcodec=mp4v,acodec=mpga,vb=800,ab=128}:standard{access=http,mux=ogg,dst=:8080}' --loop --sout-keep")
-    makeTerm(h1, title='Streamer')
-    makeTerm(h2, title='Client')
-    # makeTerm(h2)
+    # Running VLC Player
+    print vlcCommand('server')
+    makeTerm(h1, title='Streamer', cmd=vlcCommand('server'))
+    time.sleep(1)  # waiting for streaming server (1 sec)
+    makeTerm(h2, title='Client', cmd=vlcCommand('client'))
     print "After H1 Terminal"
 
     CLI(net)
