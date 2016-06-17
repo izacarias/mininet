@@ -129,7 +129,7 @@ def vlcCommand(type=''):
         return baseCommand
 
 
-def wait_for_controller(time=5):
+def wait_for_controller(seconds=5):
     for i in range(5 * 2):
         time.sleep(0.5)
 
