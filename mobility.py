@@ -129,6 +129,11 @@ def vlcCommand(type=''):
         return baseCommand
 
 
+def wait_for_controller(time=5):
+    for i in range(5 * 2):
+        time.sleep(0.5)
+
+
 def mobilityTest():
     "A simple test of mobility"
 
@@ -137,10 +142,13 @@ def mobilityTest():
 
     # Creating MobilitySwitch with compatible version
     print '* Simple mobility test'
-    net = Mininet(topo=LinearTopo(3), switch=MobilitySwitch, controller=c1)
+    net = Mininet(topo=LinearTopo(3), autoSetMacs=True,
+                  switch=MobilitySwitch, controller=c1)
     print '* Starting network:'
     net.start()
     printConnections(net.switches)
+    print '* Preparing to start'
+    wait_for_controller()
     print '* Testing network'
     # net.pingAll()
     print '* Identifying switch interface for h1'

@@ -2,16 +2,19 @@ from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.ofproto import ofproto_v1_3
-from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
+from ryu.lib.packet import packet
+from ryu.ofproto import ofproto_v1_3
+from ryu.ofproto.ether import ETH_TYPE_LLDP
 # Used for Topology Discover
 from ryu.topology import event
 # from ryu.topology import switches
-from ryu.topology.api import get_switch
 from ryu.topology.api import get_link
+from ryu.topology.api import get_switch
 # Used to process graphs
 import networkx as nx
+# Debug only
+import pprint
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -44,7 +47,8 @@ class SimpleSwitch13(app_manager.RyuApp):
                                                  hard_timeout=0,
                                                  priority=0,
                                                  instructions=inst)
-        datapath.send_msg(mod)
+        self.make_switch_inventory(ev)
+        # datapath.send_msg(mod)
         # self.add_flow(datapath, 0, match, actions)
 
     def add_flow(self, datapath, in_port, dst, actions):
@@ -59,10 +63,30 @@ class SimpleSwitch13(app_manager.RyuApp):
             priority=ofproto.OFP_DEFAULT_PRIORITY, instructions=inst)
         datapath.send_msg(mod)
 
+    def make_switch_inventory(self, ev):
+        """
+        Adding switches to NetworkX object
+        """
+        switch_list = get_switch(self.topology_api_app, None)
+        switches = [switch.dp.id for switch in switch_list]
+        # adding switches to NetworkX
+        self.net.add_nodes_from(switches)
+        links_list = get_link(self.topology_api_app, None)
+        # Need to add bi-direction links (2x links), alterning
+        # between src and dst
+        # src ---> dst
+        links = [(link.src.dpid, link.dst.dpid, {
+                  'port': link.src.port_no}) for link in links_list]
+        self.net.add_edges_from(links)
+        # dst ---> src
+        links = [(link.dst.dpid, link.src.dpid, {
+                  'port': link.dst.port_no}) for link in links_list]
+        self.net.add_edges_from(links)
+        pprint.pprint(self.net.edges())
+
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
-        self.logger.info("Receiving a packet in message with event: " + ev.msg.data)
-
+        # Getting data abou Event
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
@@ -77,23 +101,34 @@ class SimpleSwitch13(app_manager.RyuApp):
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
+        # Ignoring LLDP packets
+        if eth.ethertype == ETH_TYPE_LLDP:
+            return
+
         # Loggin packet in messages
-        # self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
+        self.logger.info("OFP -- EventOFPPacketIn")
+        self.logger.info("...Packet in %s %s %s %s", dpid, src, dst, in_port)
 
         # Adding nodes to NetworkX Object
         # If the source is not in the Graph, add it to graph
         if src not in self.net:
+            self.logger.info(src + "Nx -- Adding " + src)
             self.net.add_node(src)
             self.net.add_edge(dpid, src, {'port': in_port})
             self.net.add_edge(src, dpid)
 
         # If destination host is on graph, grab the next hop,
-        if dst in self.net:
+
+        self.logger.info("Nx -- Searching for " + dst)
+        if dst in self.net.nodes():
+            self.logger.info("Nx -- Found " + dst)
+            pprint.pprint(self.net.edges())
             path = nx.shortest_path(self.net, src, dst)
             next_hop = path[path.index(dpid) + 1]
             out_port = self.net[dpid][next_hop]['port']
         else:
             # Destination not in graph, need FLOOD the packet
+            self.logger.info(dst + " destination IS not in Net. FLOOD")
             out_port = ofproto.OFPP_FLOOD
 
         actions = [parser.OFPActionOutput(out_port)]
@@ -101,6 +136,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         # install a Flow in the switch, so it do not causes a
         # packet in Event next time
         if out_port != ofproto.OFPP_FLOOD:
+            self.logger.info("OFP -- Adding flow to " + str(dpid))
             self.add_flow(datapath, in_port, dst, actions)
 
         out = parser.OFPPacketOut(datapath=datapath,
@@ -129,24 +165,6 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     @set_ev_cls(event.EventSwitchEnter)
     def get_topology_data(self, ev):
+        self.logger.info("Receiving a EventSwitchEnter...")
         # Getting switch list
-        switch_list = get_switch(self.topology_api_app, None)
-        switches = [switch.dp.id for switch in switch_list]
-        # adding switches to NetworkX
-        self.net.add_nodes_from(switches)
-        # print "******************** LIST OF SWITCH ***************"
-        # for switch in switch_list:
-        #     print switch
-        links_list = get_link(self.topology_api_app, None)
-        # Need to add bi-direction links (2x links), alterning
-        # between src and dst
-        # src ---> dst
-        links = [(link.src.dpid, link.dst.dpid, {
-                  'port': link.src.port_no}) for link in links_list]
-        self.net.add_edges_from(links)
-        # dst ---> src
-        links = [(link.dst.dpid, link.src.dpid, {
-                  'port': link.dst.port_no}) for link in links_list]
-        self.net.add_edges_from(links)
-        print "********** ALL LINKS IN NETWORK **********"
-        print self.net.edges()
+        self.make_switch_inventory(ev)
