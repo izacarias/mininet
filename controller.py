@@ -7,6 +7,13 @@ from ryu.lib import dpid as dpid_lib
 from ryu.lib import stplib
 from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
+from ryu.lib.packet import ether_types
+# Used for topology discover
+from ryu.topology import event, switches
+from ryu.topology.api import get_switch, get_link
+# Python Standard Library
+import copy
+import networkx as nx
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -15,8 +22,10 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
-        self.mac_to_port = {}
         self.stp = kwargs['stplib']
+        self.mac_to_port = {}
+        self.net = nx.DiGraph()
+
 
         # Sample of stplib config.
         #  please refer to stplib.Stp.set_config() for details.
@@ -60,24 +69,6 @@ class SimpleSwitch13(app_manager.RyuApp):
                     {'bridge': {'priority': 0x12000, 'fwd_delay': stp_delay}}}
         self.stp.set_config(config)
 
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
-    def switch_features_handler(self, ev):
-        datapath = ev.msg.datapath
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-
-        # install table-miss flow entry
-        #
-        # We specify NO BUFFER to max_len of the output action due to
-        # OVS bug. At this moment, if we specify a lesser number, e.g.,
-        # 128, OVS will send Packet-In with invalid buffer_id and
-        # truncated packet data. In that case, we cannot output packets
-        # correctly.
-        match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
-                                          ofproto.OFPCML_NO_BUFFER)]
-        self.add_flow(datapath, 0, match, actions)
-
     def add_flow(self, datapath, priority, match, actions):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -101,8 +92,69 @@ class SimpleSwitch13(app_manager.RyuApp):
                 priority=1, match=match)
             datapath.send_msg(mod)
 
+    def get_network_topology(self, ev):
+        # Getting Switches Info (Nodes)
+        switch_list = get_switch(self.topology_api_app, None)
+        for switch in switch_list:
+            self.net.add_node(switch.dp.id)
+
+        # print "**********List of switches"
+        # for switch in switch_list:
+        # self.ls(switch)
+        # print switch
+        # self.nodes[self.no_of_nodes] = switch
+        # self.no_of_nodes += 1
+
+        # Getting Links Info
+        links_list = get_link(self.topology_api_app, None)
+        for link in links_list:
+            src_dpid = link.src.dpid
+            dst_dpid = link.dst.dpid
+            src_port_no = link.src.port_no
+            dst_port_no = link.dst.port_no
+            # Adding links do Directions Graph
+            self.net.add_edge(src_dpid, dst_dpid, {'port': src_port_no})
+            self.net.add_edge(dst_dpid, src_dpid, {'port': dst_port_no})
+        print "**********List of links"
+        print self.net.edges()
+
+    # -------------------- Topology events --------------------
+    @set_ev_cls(event.EventSwitchEnter)
+    def switch_enter_handler(self, ev):
+        self.get_network_topology(ev)
+
+    # -------------------- OpenFlow events --------------------
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    def switch_features_handler(self, ev):
+        datapath = ev.msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        # install table-miss flow entry
+        #
+        # We specify NO BUFFER to max_len of the output action due to
+        # OVS bug. At this moment, if we specify a lesser number, e.g.,
+        # 128, OVS will send Packet-In with invalid buffer_id and
+        # truncated packet data. In that case, we cannot output packets
+        # correctly.
+        match = parser.OFPMatch()
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+                                          ofproto.OFPCML_NO_BUFFER)]
+        self.add_flow(datapath, 0, match, actions)
+
     @set_ev_cls(stplib.EventPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
+
+        # Discards truncated packets
+        # If you hit this you might want to increase
+        # the "miss_send_length" of your switch
+        if ev.msg.msg_len < ev.msg.total_len:
+            self.logger.debug("packet truncated: only %s of %s bytes",
+                              ev.msg.msg_len, ev.msg.total_len)
+        if ev.msg.msg_len < ev.msg.total_len:
+            self.logger.debug("packet truncated: only %s of %s bytes",
+                              ev.msg.msg_len, ev.msg.total_len)
+
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
@@ -111,6 +163,10 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
+
+        # Ignoring lldp packet
+        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
+            return
 
         dst = eth.dst
         src = eth.src
