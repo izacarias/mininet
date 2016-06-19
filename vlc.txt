@@ -5,3 +5,12 @@ vlc-wrapper -I dummy -vvv 360x240_2mb.mp4 --sout '#transcode{vcodec=mp4v,acodec=
 Cliente (Comando xTerm):
 --------
 vlc-wrapper http://localhost:8080
+
+
+MININET
+-----------
+
+TOPO=LINEAR,10
+sudo mn --topo linear,10 --mac --controller remote,ip=192.168.56.1 --switch ovsk,protocols=OpenFlow13
+
+sudo mn --custom finalTopo.py --topo finaltopo --mac --controller remote,ip=192.168.56.1 --switch ovsk,protocols=OpenFlow13
