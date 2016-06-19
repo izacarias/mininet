@@ -20,7 +20,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         # Sample of stplib config.
         #  please refer to stplib.Stp.set_config() for details.
-        stp_delay = 6
+        stp_delay = 5
         config = {dpid_lib.str_to_dpid('0000000000000001'):
                     {'bridge': {'priority': 0x1000, 'fwd_delay': stp_delay}},
                   dpid_lib.str_to_dpid('0000000000000006'):
