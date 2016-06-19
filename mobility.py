@@ -194,11 +194,9 @@ def vlcCommand(type=''):
         return baseCommand
 
 
-def time_wait(time_to_wait=5):
-    for i in range(time_to_wait * 2):
-        print ".",
-        sys.stdout.flush()
-        time.sleep(0.5)
+def wait_for_controller(seconds=10):
+    for i in range(seconds):
+        time.sleep(1)
 
 
 def mobilityTest():

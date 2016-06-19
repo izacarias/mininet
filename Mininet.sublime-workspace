@@ -86,6 +86,14 @@
 				"buffer_size": 6455,
 				"line_ending": "Unix"
 			}
+		},
+		{
+			"file": "vlc.txt",
+			"settings":
+			{
+				"buffer_size": 273,
+				"line_ending": "Unix"
+			}
 		}
 	],
 	"build_system": "",
@@ -137,7 +145,7 @@
 	],
 	"find":
 	{
-		"height": 34.0
+		"height": 23.0
 	},
 	"find_in_files":
 	{
@@ -170,7 +178,7 @@
 	"groups":
 	[
 		{
-			"selected": 1,
+			"selected": 2,
 			"sheets":
 			[
 				{
@@ -200,7 +208,7 @@
 						"translation.y": 1935.0,
 						"zoom_level": 1.0
 					},
-					"stack_index": 1,
+					"stack_index": 2,
 					"type": "text"
 				},
 				{
@@ -228,6 +236,34 @@
 						},
 						"translation.x": 0.0,
 						"translation.y": 1133.0,
+						"zoom_level": 1.0
+					},
+					"stack_index": 1,
+					"type": "text"
+				},
+				{
+					"buffer": 2,
+					"file": "vlc.txt",
+					"semi_transient": false,
+					"settings":
+					{
+						"buffer_size": 273,
+						"regions":
+						{
+						},
+						"selection":
+						[
+							[
+								273,
+								0
+							]
+						],
+						"settings":
+						{
+							"syntax": "Packages/Text/Plain text.tmLanguage"
+						},
+						"translation.x": 0.0,
+						"translation.y": 0.0,
 						"zoom_level": 1.0
 					},
 					"stack_index": 0,

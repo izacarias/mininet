@@ -15,6 +15,7 @@ from ryu.topology.api import get_switch
 import networkx as nx
 # Debug only
 import pprint
+import copy
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -30,7 +31,7 @@ class SimpleSwitch13(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def switch_features_handler(self, ev):
         """ Handle data on receive switch features list """
-        self.logger.info("Called switch_features_handler")
+        self.logger.info("Receiving a EventOFPSwitchFeatures...")
         datapath = ev.msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
@@ -47,7 +48,6 @@ class SimpleSwitch13(app_manager.RyuApp):
                                                  hard_timeout=0,
                                                  priority=0,
                                                  instructions=inst)
-        self.make_switch_inventory(ev)
         # datapath.send_msg(mod)
         # self.add_flow(datapath, 0, match, actions)
 
@@ -62,27 +62,6 @@ class SimpleSwitch13(app_manager.RyuApp):
             command=ofproto.OFPFC_ADD, idle_timeout=0, hard_timeout=0,
             priority=ofproto.OFP_DEFAULT_PRIORITY, instructions=inst)
         datapath.send_msg(mod)
-
-    def make_switch_inventory(self, ev):
-        """
-        Adding switches to NetworkX object
-        """
-        switch_list = get_switch(self.topology_api_app, None)
-        switches = [switch.dp.id for switch in switch_list]
-        # adding switches to NetworkX
-        self.net.add_nodes_from(switches)
-        links_list = get_link(self.topology_api_app, None)
-        # Need to add bi-direction links (2x links), alterning
-        # between src and dst
-        # src ---> dst
-        links = [(link.src.dpid, link.dst.dpid, {
-                  'port': link.src.port_no}) for link in links_list]
-        self.net.add_edges_from(links)
-        # dst ---> src
-        links = [(link.dst.dpid, link.src.dpid, {
-                  'port': link.dst.port_no}) for link in links_list]
-        self.net.add_edges_from(links)
-        pprint.pprint(self.net.edges())
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -167,4 +146,14 @@ class SimpleSwitch13(app_manager.RyuApp):
     def get_topology_data(self, ev):
         self.logger.info("Receiving a EventSwitchEnter...")
         # Getting switch list
-        self.make_switch_inventory(ev)
+        switch_list = copy.copy(get_switch(self, None))
+        switches = [switch.dp.id for switch in switch_list]
+        links_list = copy.copy(get_link(self, None))
+        links = [(link.src.dpid, link.dst.dpid, {
+                  'port': link.src.port_no}) for link in links_list]
+        # Adding nodes and edges to NetworkX
+        print switches
+        print links
+
+        self.net.add_nodes_from(switches)
+        self.net.add_edges_from(links)
