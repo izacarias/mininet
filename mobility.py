@@ -19,14 +19,15 @@ to-do:
 - think about clearing last hop - why doesn't that work?
 """
 
+from mininet.log import output, warn
 from mininet.net import Mininet, CLI
 from mininet.node import OVSSwitch, RemoteController
 from mininet.topo import LinearTopo
-from mininet.log import output, warn
-from mininet.term import makeTerm, runX11
-
+from mininet.topo import Topo
+from mininet.term import makeTerm
 from random import randint
 import time
+import sys
 
 
 class MobilitySwitch(OVSSwitch):
@@ -88,6 +89,70 @@ class MobilitySwitch(OVSSwitch):
         switch.attach(intf)
 
 
+class FinalTopo(Topo):
+    """docstring for ClassName"""
+
+    def build(self):
+        # Creating Hosts H1 and H2
+        h1 = self.addHost('h1')
+        h2 = self.addHost('h2')
+        # Creating APs
+        ap2 = self.addSwitch('ap2', dpid="0000000000001002")
+        ap3 = self.addSwitch('ap3', dpid="0000000000001003")
+        ap4 = self.addSwitch('ap4', dpid="0000000000001004")
+        ap5 = self.addSwitch('ap5', dpid="0000000000001005")
+        ap7 = self.addSwitch('ap7', dpid="0000000000001007")
+        ap8 = self.addSwitch('ap8', dpid="0000000000001008")
+        ap9 = self.addSwitch('ap9', dpid="0000000000001009")
+        ap10 = self.addSwitch('ap10', dpid="0000000000001010")
+
+        # Creating switches
+        # top
+        topMiddleSwitch = self.addSwitch('s1', dpid="0000000000000001")
+        topLeftSwitch = self.addSwitch('s7', dpid="0000000000000007")
+        topRightSwitch = self.addSwitch('s8', dpid="0000000000000008")
+
+        topMiddleLeftSwitch = self.addSwitch('s2', dpid="0000000000000002")
+        topMiddleRightSwitch = self.addSwitch('s3', dpid="0000000000000003")
+
+        bottomMiddleLeftSwitch = self.addSwitch('s4', dpid="0000000000000004")
+        bottomMiddleRightSwitch = self.addSwitch('s5', dpid="0000000000000005")
+
+        bottomLeftSwitch = self.addSwitch('s9', dpid="0000000000000009")
+        bottomMiddleSwitch = self.addSwitch('s6', dpid="0000000000000006")
+        bottomRightSwitch = self.addSwitch('s10', dpid="0000000000000010")
+        # Linking Hosts
+        self.addLink(h1, topMiddleSwitch)
+        self.addLink(h2, bottomMiddleSwitch)
+        # Linking Switches
+        self.addLink(topLeftSwitch, topMiddleSwitch)  # s7-s1
+        self.addLink(topLeftSwitch, topMiddleLeftSwitch)  # s7-s2
+        self.addLink(topMiddleSwitch, topMiddleLeftSwitch)  # s1-s2
+        self.addLink(topMiddleSwitch, topRightSwitch)  # s1-s8
+        self.addLink(topMiddleSwitch, topMiddleRightSwitch)  # s1-s3
+        self.addLink(topMiddleSwitch, bottomMiddleSwitch)  # s1-s6
+        self.addLink(topRightSwitch, topMiddleRightSwitch)  # s8-s3
+        self.addLink(topMiddleLeftSwitch, bottomMiddleRightSwitch)  # s2-s5
+        self.addLink(topMiddleLeftSwitch, bottomMiddleLeftSwitch)  # s2-s4
+        self.addLink(topMiddleRightSwitch, bottomMiddleRightSwitch)  # s3-s5
+        self.addLink(topMiddleRightSwitch, bottomMiddleLeftSwitch)  # s3-s4
+        self.addLink(bottomMiddleLeftSwitch, bottomLeftSwitch)  # s4-s9
+        self.addLink(bottomMiddleLeftSwitch, bottomMiddleSwitch)  # s4-s6
+        self.addLink(bottomMiddleRightSwitch, bottomMiddleSwitch)  # s5-s6
+        self.addLink(bottomMiddleRightSwitch, bottomRightSwitch)  # s5-s10
+        self.addLink(bottomLeftSwitch, bottomMiddleSwitch)  # s9-s6
+        self.addLink(bottomRightSwitch, bottomMiddleSwitch)  # s10-s6
+        # Linking Aps
+        self.addLink(ap2, topMiddleLeftSwitch)
+        self.addLink(ap3, topMiddleRightSwitch)
+        self.addLink(ap4, bottomMiddleLeftSwitch)
+        self.addLink(ap5, bottomMiddleRightSwitch)
+        self.addLink(ap7, topLeftSwitch)
+        self.addLink(ap8, topRightSwitch)
+        self.addLink(ap9, bottomLeftSwitch)
+        self.addLink(ap10, bottomRightSwitch)
+
+
 def printConnections(switches):
     "Compactly print connected nodes to each switch"
     for sw in switches:
@@ -112,13 +177,13 @@ def vlcCommand(type=''):
     baseCommand = 'vlc-wrapper '
     if (type == 'server'):
         # media_file = '/home/mininet/720x480_5mb.mp4'
-        media_file = '/home/mininet/360x240_2mb.mp4'
+        media_file = '/home/mininet/320x180_65.mp4'
         # baseCommand += '-vvv '
         baseCommand += media_file + ' '
         baseCommand += '-I dummy '
         baseCommand += '--sout '
-        baseCommand += "'#transcode{vcodec=mp4v,acodec=none,vb=800,ab=128}"
-        baseCommand += ":standard{access=http,mux=ogg,dst=:8080}' "
+        # baseCommand += "'#transcode{vcodec=mp4v,acodec=none,vb=800,ab=128}"
+        baseCommand += '"#http{mux=ffmpeg{mux=flv},dst=:8080}" '
         baseCommand += '--loop '
         baseCommand += '--sout-keep '
         return baseCommand
@@ -129,8 +194,10 @@ def vlcCommand(type=''):
         return baseCommand
 
 
-def wait_for_controller(time=5):
-    for i in range(5 * 2):
+def time_wait(time_to_wait=5):
+    for i in range(time_to_wait * 2):
+        print ".",
+        sys.stdout.flush()
         time.sleep(0.5)
 
 
@@ -142,13 +209,17 @@ def mobilityTest():
 
     # Creating MobilitySwitch with compatible version
     print '* Simple mobility test'
-    net = Mininet(topo=LinearTopo(3), autoSetMacs=True,
+    # net = Mininet(topo=LinearTopo(3), autoSetMacs=True,
+    #              switch=MobilitySwitch, controller=c1)
+    # Using Custom Topology (FinalTopo)
+    topo = FinalTopo()
+    net = Mininet(topo=topo, autoSetMacs=True,
                   switch=MobilitySwitch, controller=c1)
     print '* Starting network:'
     net.start()
     printConnections(net.switches)
     print '* Preparing to start'
-    wait_for_controller()
+    time_wait(15)
     print '* Testing network'
     # net.pingAll()
     print '* Identifying switch interface for h1'
