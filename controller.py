@@ -9,11 +9,13 @@ from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
 # Used for topology discover
-from ryu.topology import event, switches
+from ryu.topology import event
 from ryu.topology.api import get_switch, get_link
 # Python Standard Library
-import copy
+# import copy
 import networkx as nx
+import pprint
+import logging
 
 
 class SimpleSwitch13(app_manager.RyuApp):
@@ -25,7 +27,8 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.stp = kwargs['stplib']
         self.mac_to_port = {}
         self.net = nx.DiGraph()
-
+        # Set Log Level
+        # self.logger.setLevel(logging.DEBUG)
 
         # Sample of stplib config.
         #  please refer to stplib.Stp.set_config() for details.
@@ -68,17 +71,21 @@ class SimpleSwitch13(app_manager.RyuApp):
                   dpid_lib.str_to_dpid('0000000000001010'):
                     {'bridge': {'priority': 0x12000, 'fwd_delay': stp_delay}}}
         self.stp.set_config(config)
+        # self.logger.debug('[STP][INFO] Configuring STP Priority and Fwd_delay')
+
+    # Handy function that lists all attributes in the given object
+    def ls(self, obj):
+        print("\n".join([x for x in dir(obj) if x[0] != "_"]))
 
     def add_flow(self, datapath, priority, match, actions):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
-
         mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                 match=match, instructions=inst)
         datapath.send_msg(mod)
+        # self.logger.debug('[ADD_FLOW] dpid=')
 
     def delete_flow(self, datapath):
         ofproto = datapath.ofproto
@@ -93,20 +100,13 @@ class SimpleSwitch13(app_manager.RyuApp):
             datapath.send_msg(mod)
 
     def get_network_topology(self, ev):
+        self.net.clear()
         # Getting Switches Info (Nodes)
-        switch_list = get_switch(self.topology_api_app, None)
+        switch_list = get_switch(self, None)
         for switch in switch_list:
             self.net.add_node(switch.dp.id)
-
-        # print "**********List of switches"
-        # for switch in switch_list:
-        # self.ls(switch)
-        # print switch
-        # self.nodes[self.no_of_nodes] = switch
-        # self.no_of_nodes += 1
-
         # Getting Links Info
-        links_list = get_link(self.topology_api_app, None)
+        links_list = get_link(self, None)
         for link in links_list:
             src_dpid = link.src.dpid
             dst_dpid = link.dst.dpid
@@ -115,12 +115,12 @@ class SimpleSwitch13(app_manager.RyuApp):
             # Adding links do Directions Graph
             self.net.add_edge(src_dpid, dst_dpid, {'port': src_port_no})
             self.net.add_edge(dst_dpid, src_dpid, {'port': dst_port_no})
-        print "**********List of links"
-        print self.net.edges()
+        # self.logger.debug("[NetworkX] -- Topology Complete")
 
     # -------------------- Topology events --------------------
     @set_ev_cls(event.EventSwitchEnter)
     def switch_enter_handler(self, ev):
+        # self.logger.debug("[Event] -- SwitchEnter")
         self.get_network_topology(ev)
 
     # -------------------- OpenFlow events --------------------
@@ -149,18 +149,13 @@ class SimpleSwitch13(app_manager.RyuApp):
         # If you hit this you might want to increase
         # the "miss_send_length" of your switch
         if ev.msg.msg_len < ev.msg.total_len:
-            self.logger.debug("packet truncated: only %s of %s bytes",
-                              ev.msg.msg_len, ev.msg.total_len)
-        if ev.msg.msg_len < ev.msg.total_len:
-            self.logger.debug("packet truncated: only %s of %s bytes",
-                              ev.msg.msg_len, ev.msg.total_len)
-
+            # self.logger.debug("Packet truncated: only %s of %s bytes",
+            #                   ev.msg.msg_len, ev.msg.total_len)
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         in_port = msg.match['in_port']
-
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
 
@@ -170,23 +165,32 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         dst = eth.dst
         src = eth.src
-
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
-
-        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
+        # Logging Packet in event
+        # self.logger.info("Packet in %s %s %s %s", dpid, src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time.
-        self.mac_to_port[dpid][src] = in_port
-
-        if dst in self.mac_to_port[dpid]:
-            out_port = self.mac_to_port[dpid][dst]
+        # self.mac_to_port[dpid][src] = in_port
+        if src not in self.net:
+            self.net.add_node(src)
+            self.net.add_edge(dpid, src, {'port': in_port})
+            self.net.add_edge(src, dpid)
+        # Try to get the destination from Network Graph
+        # if dst in self.mac_to_port[dpid]:
+        #     out_port = self.mac_to_port[dpid][dst]
+        # else:
+        #     out_port = ofproto.OFPP_FLOOD
+        if dst in self.net:
+            path = nx.shortest_path(self.net, src, dst)
+            next_hop = path[path.index(dpid) + 1]
+            out_port = self.net[dpid][next_hop]['port']
         else:
             out_port = ofproto.OFPP_FLOOD
-
+        # Create OpenFlow Action (Out in port...)
         actions = [parser.OFPActionOutput(out_port)]
 
-        # install a flow to avoid packet_in next time
+        # Install a flow in switch to avoid pkt_in next time
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
             self.add_flow(datapath, 1, match, actions)
@@ -203,12 +207,15 @@ class SimpleSwitch13(app_manager.RyuApp):
     def _topology_change_handler(self, ev):
         dp = ev.dp
         dpid_str = dpid_lib.dpid_to_str(dp.id)
-        msg = 'Receive topology change event. Flush MAC table.'
-        self.logger.debug("[dpid=%s] %s", dpid_str, msg)
+        # self.logger.debug(
+        #     "[STP][DEBUG] dpid=%s Topology change event. Flush MAC table",
+        #     dpid_str)
 
         if dp.id in self.mac_to_port:
             self.delete_flow(dp)
             del self.mac_to_port[dp.id]
+        # Update topology
+        self.get_network_topology(ev)
 
     @set_ev_cls(stplib.EventPortStateChange, MAIN_DISPATCHER)
     def _port_state_change_handler(self, ev):
@@ -218,5 +225,5 @@ class SimpleSwitch13(app_manager.RyuApp):
                     stplib.PORT_STATE_LISTEN: 'LISTEN',
                     stplib.PORT_STATE_LEARN: 'LEARN',
                     stplib.PORT_STATE_FORWARD: 'FORWARD'}
-        self.logger.debug("[dpid=%s][port=%d] state=%s",
-                          dpid_str, ev.port_no, of_state[ev.port_state])
+        # self.logger.debug("[dpid=%s][port=%d] state=%s",
+        #                   dpid_str, ev.port_no, of_state[ev.port_state])
