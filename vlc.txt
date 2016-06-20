@@ -14,3 +14,6 @@ TOPO=LINEAR,10
 sudo mn --topo linear,10 --mac --controller remote,ip=192.168.56.1 --switch ovsk,protocols=OpenFlow13
 
 sudo mn --custom finalTopo.py --topo finaltopo --mac --controller remote,ip=192.168.56.1 --switch ovsk,protocols=OpenFlow13
+
+
+vlc -vvv http://127.0.0.1:8080 2>&1 | awk '{ if($13=="(missing") { print $14 }}' &> h1.txt'")") }'
