@@ -223,24 +223,24 @@ def mobilityTest():
     makeTerm(h1, title='Streamer', cmd=vlcCommand('server'))
     time.sleep(1)  # waiting for streaming server (1 sec)
     makeTerm(h2, title='Client', cmd=vlcCommand('client'))
-    print "After H1 Terminal"
-
+    print '* After H1 Terminal'
+    CLI(net)
     # Loop forever to test the controller (Stop with Ctrl+C)
-    while True:
-        for s in 2, 3, 1, 8, 6, 7, 4, 9, 5, 10:
-            new = net['s%d' % s]
-            port = randint(10, 20)
-            print '* Moving', h1, 'from', old, 'to', new, 'port', port
-            hintf, sintf = moveHost(h1, old, new, newPort=port)
-            print '*', hintf, 'is now connected to', sintf
-            print '* Clearing out old flows'
-            for sw in net.switches:
-                sw.dpctl('del-flows')
-            print '* New network:'
-            printConnections(net.switches)
-            print '* Testing connectivity:'
-            net.pingAll()
-            old = new
+    # while True:
+    #     for s in 2, 3, 1, 8, 6, 7, 4, 9, 5, 10:
+    #         new = net['s%d' % s]
+    #         port = randint(10, 20)
+    #         print '* Moving', h1, 'from', old, 'to', new, 'port', port
+    #         hintf, sintf = moveHost(h1, old, new, newPort=port)
+    #         print '*', hintf, 'is now connected to', sintf
+    #         print '* Clearing out old flows'
+    #         for sw in net.switches:
+    #             sw.dpctl('del-flows')
+    #         print '* New network:'
+    #         printConnections(net.switches)
+    #         print '* Testing connectivity:'
+    #         net.pingAll()
+    #         old = new
     net.stop()
 
 if __name__ == '__main__':

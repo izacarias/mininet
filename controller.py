@@ -153,13 +153,14 @@ class SimpleSwitch13(app_manager.RyuApp):
         if msg.reason == ofproto.OFPPR_MODIFY \
                 and ofpport.state == ofproto.OFPPS_LINK_DOWN:
             port_no = ofpport.port_no
-            hw_addr = ofpport.hw_addr
-            # -------------------------------
-            # TODO: Remove from Network GRAPH
-            # TODO: Remove flow from switches (all dpids)
-            # self.logger.debug('Host Down: [dpid=%s] [port=%d] [hw_addr=%s]',
-            #                   dpid_str, port_no, hw_addr)
+            src = ofpport.hw_addr
+            # Removing the node from graph
+            print self.net.nodes()
+            self.net.remove_node(src)
 
+            # TODO: Remove flow from switches (all dpids)
+            self.logger.debug('Host Down: [dpid=%s] [port=%d] [mac=%s]',
+                              dpid_str, port_no, src)
     @set_ev_cls(stplib.EventPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
 
@@ -223,17 +224,18 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     @set_ev_cls(stplib.EventTopologyChange, MAIN_DISPATCHER)
     def _topology_change_handler(self, ev):
-        dp = ev.dp
+        pass
+        # dp = ev.dp
         # dpid_str = dpid_lib.dpid_to_str(dp.id)
         # self.logger.debug(
-        #     "[STP][DEBUG] dpid=%s Topology change event. Flush MAC table",
+        #     "[Event] Topology Change: dpid=%s: Flushing MAC table",
         #     dpid_str)
 
-        if dp.id in self.mac_to_port:
-            self.delete_flow(dp)
-            del self.mac_to_port[dp.id]
-        # Update topology
-        self.get_network_topology(ev)
+        # if dp.id in self.mac_to_port:
+        #     self.delete_flow(dp)
+        #     del self.mac_to_port[dp.id]
+        # # Update topology
+        # self.get_network_topology(ev)
 
     # @set_ev_cls(stplib.EventPortStateChange, MAIN_DISPATCHER)
     # def _port_state_change_handler(self, ev):
