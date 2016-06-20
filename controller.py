@@ -10,7 +10,7 @@ from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
 # Used for topology discover
 from ryu.topology import event
-from ryu.topology.api import get_switch, get_link
+from ryu.topology.api import get_host, get_link, get_switch
 # Python Standard Library
 # import copy
 import networkx as nx
@@ -28,7 +28,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.mac_to_port = {}
         self.net = nx.DiGraph()
         # Set Log Level
-        # self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.DEBUG)
 
         # Sample of stplib config.
         #  please refer to stplib.Stp.set_config() for details.
@@ -71,7 +71,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                   dpid_lib.str_to_dpid('0000000000001010'):
                     {'bridge': {'priority': 0x12000, 'fwd_delay': stp_delay}}}
         self.stp.set_config(config)
-        # self.logger.debug('[STP][INFO] Configuring STP Priority and Fwd_delay')
+        # self.logger.debug('[STP] Configuring STP Priority and Fwd_delay')
 
     # Handy function that lists all attributes in the given object
     def ls(self, obj):
@@ -142,13 +142,31 @@ class SimpleSwitch13(app_manager.RyuApp):
                                           ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
 
+    @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
+    def _port_status_handler(self, ev):
+        msg = ev.msg
+        datapath = msg.datapath
+        ofproto = datapath.ofproto
+        ofpport = msg.desc
+        dpid_str = dpid_lib.dpid_to_str(datapath.id)
+        # Detecting a host down (Possibly moving?)
+        if msg.reason == ofproto.OFPPR_MODIFY \
+                and ofpport.state == ofproto.OFPPS_LINK_DOWN:
+            port_no = ofpport.port_no
+            hw_addr = ofpport.hw_addr
+            # -------------------------------
+            # TODO: Remove from Network GRAPH
+            # TODO: Remove flow from switches (all dpids)
+            # self.logger.debug('Host Down: [dpid=%s] [port=%d] [hw_addr=%s]',
+            #                   dpid_str, port_no, hw_addr)
+
     @set_ev_cls(stplib.EventPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
 
         # Discards truncated packets
         # If you hit this you might want to increase
         # the "miss_send_length" of your switch
-        if ev.msg.msg_len < ev.msg.total_len:
+        # if ev.msg.msg_len < ev.msg.total_len:
             # self.logger.debug("Packet truncated: only %s of %s bytes",
             #                   ev.msg.msg_len, ev.msg.total_len)
         msg = ev.msg
@@ -206,7 +224,7 @@ class SimpleSwitch13(app_manager.RyuApp):
     @set_ev_cls(stplib.EventTopologyChange, MAIN_DISPATCHER)
     def _topology_change_handler(self, ev):
         dp = ev.dp
-        dpid_str = dpid_lib.dpid_to_str(dp.id)
+        # dpid_str = dpid_lib.dpid_to_str(dp.id)
         # self.logger.debug(
         #     "[STP][DEBUG] dpid=%s Topology change event. Flush MAC table",
         #     dpid_str)
@@ -217,13 +235,14 @@ class SimpleSwitch13(app_manager.RyuApp):
         # Update topology
         self.get_network_topology(ev)
 
-    @set_ev_cls(stplib.EventPortStateChange, MAIN_DISPATCHER)
-    def _port_state_change_handler(self, ev):
-        dpid_str = dpid_lib.dpid_to_str(ev.dp.id)
-        of_state = {stplib.PORT_STATE_DISABLE: 'DISABLE',
-                    stplib.PORT_STATE_BLOCK: 'BLOCK',
-                    stplib.PORT_STATE_LISTEN: 'LISTEN',
-                    stplib.PORT_STATE_LEARN: 'LEARN',
-                    stplib.PORT_STATE_FORWARD: 'FORWARD'}
-        # self.logger.debug("[dpid=%s][port=%d] state=%s",
-        #                   dpid_str, ev.port_no, of_state[ev.port_state])
+    # @set_ev_cls(stplib.EventPortStateChange, MAIN_DISPATCHER)
+    # def _port_state_change_handler(self, ev):
+    #     pprint(ev)
+    #     dpid_str = dpid_lib.dpid_to_str(ev.dp.id)
+    #     of_state = {stplib.PORT_STATE_DISABLE: 'DISABLE',
+    #                 stplib.PORT_STATE_BLOCK: 'BLOCK',
+    #                 stplib.PORT_STATE_LISTEN: 'LISTEN',
+    #                 stplib.PORT_STATE_LEARN: 'LEARN',
+    #                 stplib.PORT_STATE_FORWARD: 'FORWARD'}
+    #     self.logger.debug("[dpid=%s][port=%d] state=%s",
+    #                       dpid_str, ev.port_no, of_state[ev.port_state])
