@@ -4,11 +4,13 @@ vlc-wrapper -I dummy -vvv 360x240_2mb.mp4 --sout '#transcode{vcodec=mp4v,acodec=
 
 Cliente (Comando xTerm):
 --------
-vlc-wrapper http://localhost:8080
+vlc-wrapper http://localhost:8080 --extraintf=http:logger --verbose=2 --file-logging --logfile=vlc-log.txt
 
 Comando cliente com stats
 -------------------------
-vlc -vvv http://127.0.0.1:8080 2>&1 | awk '{ if($13=="(missing") { print $14 }}' &> h1.txt'")") }'
+vlc -vvv http://127.0.0.1:8080 2>&1 | awk '{ if($13=="(missing") { print $14 }}' &> h1.txt
+vlc -vvv  /watch?v=EyrwOf239M4 2>&1 | awk '{ if($5=="Buffering") { print $6 }}'
+
 
 
 MININET
