@@ -117,6 +117,14 @@ class SimpleSwitch13(app_manager.RyuApp):
             self.net.add_edge(dst_dpid, src_dpid, {'port': dst_port_no})
         # self.logger.debug("[NetworkX] -- Topology Complete")
 
+    def get_dst_by_src(self, src_node, src_port):
+        """ Search for destination DPID or MAC by Source(DPID OR MAC)
+            and Source Port
+        """
+        for src, dst, port in self.net.edges(data='port'):
+            if src == src_node and port == src_port:
+                return dst
+
     # -------------------- Topology events --------------------
     @set_ev_cls(event.EventSwitchEnter)
     def switch_enter_handler(self, ev):
@@ -153,14 +161,15 @@ class SimpleSwitch13(app_manager.RyuApp):
         if msg.reason == ofproto.OFPPR_MODIFY \
                 and ofpport.state == ofproto.OFPPS_LINK_DOWN:
             port_no = ofpport.port_no
-            src = ofpport.hw_addr
-            # Removing the node from graph
-            print self.net.nodes()
-            self.net.remove_node(src)
+            dst_node = self.get_dst_by_src(datapath.id, port_no)
+            if not None and dst_node in self.net:
+                self.logger.info("[HOST DOWN] Removing [mac %s] on " +
+                                 "[dpid=%s] [port=%d]",
+                                 dst_node, dpid_str, port_no)
+                self.net.remove_node(dst_node)
+                print "@@@@@@@@@@@@@@  NODES  @@@@@@@@@@@@@@@@@@"
+                print self.net.nodes()
 
-            # TODO: Remove flow from switches (all dpids)
-            self.logger.debug('Host Down: [dpid=%s] [port=%d] [mac=%s]',
-                              dpid_str, port_no, src)
     @set_ev_cls(stplib.EventPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
 
@@ -189,13 +198,15 @@ class SimpleSwitch13(app_manager.RyuApp):
         # Logging Packet in event
         # self.logger.info("Packet in %s %s %s %s", dpid, src, dst, in_port)
 
-        # learn a mac address to avoid FLOOD next time.
-        # self.mac_to_port[dpid][src] = in_port
+        # learn a mac address to avoid FLOOD next time. Save the MAC/PORT
+        # to update the network topology later
+        self.mac_to_port[dpid][src] = in_port
         if src not in self.net:
             self.net.add_node(src)
             self.net.add_edge(dpid, src, {'port': in_port})
             self.net.add_edge(src, dpid)
         # Try to get the destination from Network Graph
+        # out_port fetched from NetworkX
         # if dst in self.mac_to_port[dpid]:
         #     out_port = self.mac_to_port[dpid][dst]
         # else:
