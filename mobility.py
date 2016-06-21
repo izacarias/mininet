@@ -218,7 +218,7 @@ def mobilityTest():
     net.waitConnected(delay=1)
     print '... ok All switches connected.'
     print '* Waiting for the Spanning Tree configuration.'
-    time.sleep(10)
+    time.sleep(6)
     print '* Testing network'
     net.pingAll()
     print '* Identifying switch interface for h1'
@@ -231,20 +231,20 @@ def mobilityTest():
     print '* After H1 Terminal'
     CLI(net)
     # Loop forever to test the controller (Stop with Ctrl+C)
-    # for s in 2, 3, 1, 8, 6, 7, 4, 9, 5, 10:
-    #     new = net['s%d' % s]
-    #     port = randint(10, 20)
-    #     print '* Moving', h1, 'from', old, 'to', new, 'port', port
-    #     hintf, sintf = moveHost(h1, old, new, newPort=port)
-    #     print '*', hintf, 'is now connected to', sintf
-    #     print '* Clearing out old flows'
-    #     for sw in net.switches:
-    #         sw.dpctl('del-flows')
-    #     print '* New network:'
-    #     printConnections(net.switches)
-    #     print '* Testing connectivity:'
-    #     net.pingAll()
-    #     old = new
+    for s in 2, 8, 3, 8, 5:
+        new = net['s%d' % s]
+        port = randint(10, 20)
+        print '* Moving', h1, 'from', old, 'to', new, 'port', port
+        hintf, sintf = moveHost(h1, old, new, newPort=port)
+        print '* ', hintf, 'is now connected to', sintf
+        # print '* Clearing out old flows'
+        # for sw in net.switches:
+        #     sw.dpctl('del-flows')
+        print '* New network:'
+        printConnections(net.switches)
+        print '* Testing connectivity:'
+        CLI(net)
+        old = new
     net.stop()
 
 if __name__ == '__main__':
