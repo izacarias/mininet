@@ -37,7 +37,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         # Sample of stplib config.
         #  please refer to stplib.Stp.set_config() for details.
-        stp_delay = 5
+        stp_delay = 3
         config = {dpid_lib.str_to_dpid('0000000000000001'):
                     {'bridge': {'priority': 0x1000, 'fwd_delay': stp_delay}},
                   dpid_lib.str_to_dpid('0000000000000006'):
@@ -218,9 +218,13 @@ class SimpleSwitch13(app_manager.RyuApp):
         # else:
         #     out_port = ofproto.OFPP_FLOOD
         if dst in self.net:
-            path = nx.shortest_path(self.net, src, dst)
-            next_hop = path[path.index(dpid) + 1]
-            out_port = self.net[dpid][next_hop]['port']
+            try:
+                path = nx.shortest_path(self.net, src, dst)
+                next_hop = path[path.index(dpid) + 1]
+                out_port = self.net[dpid][next_hop]['port']
+            except:
+                out_port = ofproto.OFPP_FLOOD
+                self.logger.debug('[WARNING] Host in list but no path')
         else:
             out_port = ofproto.OFPP_FLOOD
         # Create OpenFlow Action (Out in port...)
