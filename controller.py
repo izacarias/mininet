@@ -1,4 +1,5 @@
 from ryu.base import app_manager
+from ryu.controller import dpset
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
@@ -20,11 +21,15 @@ import logging
 
 class SimpleSwitch13(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-    _CONTEXTS = {'stplib': stplib.Stp}
+    _CONTEXTS = {
+        'stplib': stplib.Stp,
+        'dpset': dpset.DPSet
+    }
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
         self.stp = kwargs['stplib']
+        self.dpset = kwargs['dpset']
         self.mac_to_port = {}
         self.net = nx.DiGraph()
         # Set Log Level
@@ -87,17 +92,15 @@ class SimpleSwitch13(app_manager.RyuApp):
         datapath.send_msg(mod)
         # self.logger.debug('[ADD_FLOW] dpid=')
 
-    def delete_flow(self, datapath):
+    def delete_flow(self, datapath, dst_mac):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-
-        for dst in self.mac_to_port[datapath.id].keys():
-            match = parser.OFPMatch(eth_dst=dst)
-            mod = parser.OFPFlowMod(
-                datapath, command=ofproto.OFPFC_DELETE,
-                out_port=ofproto.OFPP_ANY, out_group=ofproto.OFPG_ANY,
-                priority=1, match=match)
-            datapath.send_msg(mod)
+        match = parser.OFPMatch(eth_dst=dst_mac)
+        mod = parser.OFPFlowMod(datapath, command=ofproto.OFPFC_DELETE,
+                                out_port=ofproto.OFPP_ANY,
+                                out_group=ofproto.OFPG_ANY,
+                                priority=1, match=match)
+        datapath.send_msg(mod)
 
     def get_network_topology(self, ev):
         self.net.clear()
@@ -160,15 +163,18 @@ class SimpleSwitch13(app_manager.RyuApp):
         # Detecting a host down (Possibly moving?)
         if msg.reason == ofproto.OFPPR_MODIFY \
                 and ofpport.state == ofproto.OFPPS_LINK_DOWN:
+            # Clear the NetworkGraph when detect LINK_DOWN
             port_no = ofpport.port_no
             dst_node = self.get_dst_by_src(datapath.id, port_no)
             if not None and dst_node in self.net:
                 self.logger.info("[HOST DOWN] Removing [mac %s] on " +
                                  "[dpid=%s] [port=%d]",
                                  dst_node, dpid_str, port_no)
+                # removing node from Graph
                 self.net.remove_node(dst_node)
-                print "@@@@@@@@@@@@@@  NODES  @@@@@@@@@@@@@@@@@@"
-                print self.net.nodes()
+                # Clearing old flows (relates to host MAC)
+                for dp_id, datapath in self.dpset.get_all():
+                    self.delete_flow(datapath, dst_node)
 
     @set_ev_cls(stplib.EventPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
@@ -200,7 +206,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         # learn a mac address to avoid FLOOD next time. Save the MAC/PORT
         # to update the network topology later
-        self.mac_to_port[dpid][src] = in_port
+        # self.mac_to_port[dpid][src] = in_port
         if src not in self.net:
             self.net.add_node(src)
             self.net.add_edge(dpid, src, {'port': in_port})
