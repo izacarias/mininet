@@ -37,44 +37,63 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         # Sample of stplib config.
         #  please refer to stplib.Stp.set_config() for details.
-        stp_delay = 3
+        stp_hello = 1
+        stp_delay = 2
         config = {dpid_lib.str_to_dpid('0000000000000001'):
-                    {'bridge': {'priority': 0x1000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0x1000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000000006'):
-                    {'bridge': {'priority': 0x2000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0x2000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000000007'):
-                    {'bridge': {'priority': 0x3000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0x3000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000000002'):
-                    {'bridge': {'priority': 0x4000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0x4000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000000003'):
-                    {'bridge': {'priority': 0x5000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0x5000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000000008'):
-                    {'bridge': {'priority': 0x6000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0x6000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000000004'):
-                    {'bridge': {'priority': 0x7000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0x7000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000000009'):
-                    {'bridge': {'priority': 0x8000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0x8000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000000005'):
-                    {'bridge': {'priority': 0x9000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0x9000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000000010'):
-                    {'bridge': {'priority': 0xa000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0xa000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   # Need to configure the Station's STP priority
                   dpid_lib.str_to_dpid('0000000000001002'):
-                    {'bridge': {'priority': 0xb000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0xb000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000001003'):
-                    {'bridge': {'priority': 0xc000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0xc000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000001004'):
-                    {'bridge': {'priority': 0xd000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0xd000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000001005'):
-                    {'bridge': {'priority': 0xe000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0xe000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000001007'):
-                    {'bridge': {'priority': 0xf000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0xf000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000001008'):
-                    {'bridge': {'priority': 0x10000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0x10000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000001009'):
-                    {'bridge': {'priority': 0x11000, 'fwd_delay': stp_delay}},
+                    {'bridge': {'priority': 0x11000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}},
                   dpid_lib.str_to_dpid('0000000000001010'):
-                    {'bridge': {'priority': 0x12000, 'fwd_delay': stp_delay}}}
+                    {'bridge': {'priority': 0x12000, 'fwd_delay': stp_delay,
+                     'hello_time': stp_hello}}}
         self.stp.set_config(config)
         # self.logger.debug('[STP] Configuring STP Priority and Fwd_delay')
 
