@@ -200,7 +200,7 @@ def vlcCommand(type='', host=None, curr_time_str=None):
 def mobilityTest():
     "Simple Random Mobility"
     # Getting Current time to save logs
-    # curr_time_str = time.strftime("%H%M%S")
+    curr_time_str = time.strftime("%H%M%S")
     # Creating remote controller (on Host OS)
     c1 = RemoteController('c1', ip='192.168.56.1', port=6633)
     print '* Simple mobility test'
@@ -222,17 +222,16 @@ def mobilityTest():
     print '* Testing network'
     net.pingAll()
     print '* Identifying switch interface for h1'
-    h1, h2, old = net.get('h1', 'h2', 's1')
+    h1, h2, old = net.get('h1', 'h2', 's6')
     # Running VLC Player
     # print vlcCommand('server')
-    # makeTerm(h1, title='Streamer', cmd=vlcCommand('server'))
-    # time.sleep(1)  # waiting for streaming server (1 sec)
-    # makeTerm(h2, title='Client', cmd=vlcCommand('client', h2, curr_time_str))
-    print '* After H1 Terminal'
-    CLI(net)
+    makeTerm(h1, title='Streamer', cmd=vlcCommand('server'))
+    time.sleep(2)  # waiting for streaming server (1 sec)
+    makeTerm(h2, title='Client', cmd=vlcCommand('client', h2, curr_time_str))
+    print '* Starting "handovers"'
     # Loop forever to test the controller (Stop with Ctrl+C)
-    for s in 2, 8, 3, 8, 5:
-        new = net['s%d' % s]
+    for s in 2, 4, 7, 8, 9:
+        new = net['ap%d' % s]
         port = randint(10, 20)
         print '* Moving', h1, 'from', old, 'to', new, 'port', port
         hintf, sintf = moveHost(h1, old, new, newPort=port)
@@ -243,7 +242,8 @@ def mobilityTest():
         print '* New network:'
         printConnections(net.switches)
         print '* Testing connectivity:'
-        CLI(net)
+        # net.pingAll()
+        net.iperf((h1, h2))
         old = new
     net.stop()
 
