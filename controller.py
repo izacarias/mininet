@@ -31,6 +31,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.stp = kwargs['stplib']
         self.dpset = kwargs['dpset']
         self.mac_to_port = {}
+        self.stp_blocked_ports = {}
         self.net = nx.DiGraph()
         # Set Log Level
         self.logger.setLevel(logging.DEBUG)
@@ -108,8 +109,9 @@ class SimpleSwitch13(app_manager.RyuApp):
                                              actions)]
         mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                 match=match, instructions=inst)
+        self.logger.debug('[OFP] -- Adding Flow to [dpid=%s]',
+                          dpid_lib.dpid_to_str(datapath.id))
         datapath.send_msg(mod)
-        # self.logger.debug('[ADD_FLOW] dpid=')
 
     def delete_flow(self, datapath, dst_mac):
         ofproto = datapath.ofproto
@@ -119,6 +121,8 @@ class SimpleSwitch13(app_manager.RyuApp):
                                 out_port=ofproto.OFPP_ANY,
                                 out_group=ofproto.OFPG_ANY,
                                 priority=1, match=match)
+        self.logger.debug('[OFP] -- Removig Flow from [dpid=%s]',
+                          dpid_lib.dpid_to_str(datapath.id))
         datapath.send_msg(mod)
 
     def get_network_topology(self, ev):
@@ -138,6 +142,18 @@ class SimpleSwitch13(app_manager.RyuApp):
             self.net.add_edge(src_dpid, dst_dpid, {'port': src_port_no})
             self.net.add_edge(dst_dpid, src_dpid, {'port': dst_port_no})
         # self.logger.debug("[NetworkX] -- Topology Complete")
+        for dpid_str in self.stp_blocked_ports:
+            for src, dst, data in self.net.out_edges(dpid_str, data=True):
+                if data['port'] == self.stp_blocked_ports[dpid_str]:
+                    self.net.remove_edge(src, dst)
+
+        hosts = get_host(self)
+        for host in hosts:
+            self.net.add_node(host.mac)
+            sw_dpid_str = dpid_lib.dpid_to_str(host.port.dpid)
+            sw_port_no = host.port.port_no
+            self.net.add_edge(host.mac, sw_dpid_str, {'port': 1})
+            self.net.add_edge(sw_dpid_str, host.mac, {'port': sw_port_no})
 
     def get_dst_by_src(self, src_node, src_port):
         """ Search for destination DPID or MAC by Source(DPID OR MAC)
@@ -174,6 +190,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     def _port_status_handler(self, ev):
+        self.logger.debug('[EventOFPPortStatus] -- Port status change')
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
@@ -201,9 +218,10 @@ class SimpleSwitch13(app_manager.RyuApp):
         # Discards truncated packets
         # If you hit this you might want to increase
         # the "miss_send_length" of your switch
-        # if ev.msg.msg_len < ev.msg.total_len:
-            # self.logger.debug("Packet truncated: only %s of %s bytes",
-            #                   ev.msg.msg_len, ev.msg.total_len)
+        if ev.msg.msg_len < ev.msg.total_len:
+            self.logger.debug("Packet truncated: only %s of %s bytes",
+                              ev.msg.msg_len, ev.msg.total_len)
+
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
@@ -221,7 +239,8 @@ class SimpleSwitch13(app_manager.RyuApp):
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
         # Logging Packet in event
-        # self.logger.info("Packet in %s %s %s %s", dpid, src, dst, in_port)
+        self.logger.info("Packet in %s %s %s %s", dpid_lib.dpid_to_str(dpid),
+                         src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time. Save the MAC/PORT
         # to update the network topology later
@@ -244,6 +263,8 @@ class SimpleSwitch13(app_manager.RyuApp):
             except:
                 out_port = ofproto.OFPP_FLOOD
                 self.logger.debug('[WARNING] Host in list but no path')
+                self.logger.debug('[WARNING] Recalculating Topology')
+                self.get_network_topology(ev)
         else:
             out_port = ofproto.OFPP_FLOOD
         # Create OpenFlow Action (Out in port...)
@@ -264,7 +285,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     @set_ev_cls(stplib.EventTopologyChange, MAIN_DISPATCHER)
     def _topology_change_handler(self, ev):
-        pass
+        self.get_network_topology(ev)
         # dp = ev.dp
         # dpid_str = dpid_lib.dpid_to_str(dp.id)
         # self.logger.debug(
@@ -277,14 +298,18 @@ class SimpleSwitch13(app_manager.RyuApp):
         # # Update topology
         # self.get_network_topology(ev)
 
-    # @set_ev_cls(stplib.EventPortStateChange, MAIN_DISPATCHER)
-    # def _port_state_change_handler(self, ev):
-    #     pprint(ev)
-    #     dpid_str = dpid_lib.dpid_to_str(ev.dp.id)
-    #     of_state = {stplib.PORT_STATE_DISABLE: 'DISABLE',
-    #                 stplib.PORT_STATE_BLOCK: 'BLOCK',
-    #                 stplib.PORT_STATE_LISTEN: 'LISTEN',
-    #                 stplib.PORT_STATE_LEARN: 'LEARN',
-    #                 stplib.PORT_STATE_FORWARD: 'FORWARD'}
-    #     self.logger.debug("[dpid=%s][port=%d] state=%s",
-    #                       dpid_str, ev.port_no, of_state[ev.port_state])
+    @set_ev_cls(stplib.EventPortStateChange, MAIN_DISPATCHER)
+    def _port_state_change_handler(self, ev):
+        self.logger.debug("[Event] Port State Change")
+        dpid_str = dpid_lib.dpid_to_str(ev.dp.id)
+        port_no = ev.port_no
+        port_state = ev.port_state
+        # update networkGraph when port state is disabled or blocked
+        if port_state == stplib.PORT_STATE_DISABLE \
+           or port_state == stplib.PORT_STATE_BLOCK:
+            self.stp_blocked_ports[dpid_str] = port_no
+        # remove from blocked ports when it is alive
+        if port_state in {stplib.PORT_STATE_LISTEN, stplib.PORT_STATE_LEARN,
+                          stplib.PORT_STATE_FORWARD}:
+            if dpid_str in self.stp_blocked_ports:
+                del self.stp_blocked_ports[dpid_str]
