@@ -1,180 +1,140 @@
+# Copyright (C) 2011 Nippon Telegraph and Telephone Corporation.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
+# implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
 from ryu.base import app_manager
-from ryu.controller import dpset
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
 from ryu.ofproto import ofproto_v1_3
-from ryu.lib import dpid as dpid_lib
-from ryu.lib import stplib
-from ryu.lib.packet import packet
+from ryu.lib import mac
+from ryu.lib.packet import arp
 from ryu.lib.packet import ethernet
-from ryu.lib.packet import ether_types
-# Used for topology discover
-from ryu.topology import event
-from ryu.topology.api import get_host, get_link, get_switch
-# Python Standard Library
-# import copy
+from ryu.lib.packet import packet
+# Used to process graphs
 import networkx as nx
-import pprint
-import logging
+# Debug only
+# from pprint import pprint
+
+# Constants for ARP FLOOD MANIPULATION
+ARP_MSG_DROP = True
+ARP_MSG_FLOOD = False
 
 
 class SimpleSwitch13(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-    _CONTEXTS = {
-        'stplib': stplib.Stp,
-        'dpset': dpset.DPSet
-    }
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
-        self.stp = kwargs['stplib']
-        self.dpset = kwargs['dpset']
         self.mac_to_port = {}
-        self.stp_blocked_ports = {}
+        self.switches = []
+        self.arp_table = {}
         self.net = nx.DiGraph()
-        # Set Log Level
-        self.logger.setLevel(logging.DEBUG)
+        # Neet for ARP request / response
+        self.hw_addr = '0a:0a:0a:0a:0a:0a'
+        self.ip_addr = '10.0.0.254'
 
-        # Sample of stplib config.
-        #  please refer to stplib.Stp.set_config() for details.
-        stp_hello = 1
-        stp_delay = 2
-        config = {dpid_lib.str_to_dpid('0000000000000001'):
-                    {'bridge': {'priority': 0x1000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000006'):
-                    {'bridge': {'priority': 0x2000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000007'):
-                    {'bridge': {'priority': 0x3000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000002'):
-                    {'bridge': {'priority': 0x4000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000003'):
-                    {'bridge': {'priority': 0x5000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000008'):
-                    {'bridge': {'priority': 0x6000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000004'):
-                    {'bridge': {'priority': 0x7000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000009'):
-                    {'bridge': {'priority': 0x8000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000005'):
-                    {'bridge': {'priority': 0x9000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000010'):
-                    {'bridge': {'priority': 0xa000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  # Need to configure the Station's STP priority
-                  dpid_lib.str_to_dpid('0000000000001002'):
-                    {'bridge': {'priority': 0xb000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001003'):
-                    {'bridge': {'priority': 0xc000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001004'):
-                    {'bridge': {'priority': 0xd000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001005'):
-                    {'bridge': {'priority': 0xe000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001007'):
-                    {'bridge': {'priority': 0xf000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001008'):
-                    {'bridge': {'priority': 0x10000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001009'):
-                    {'bridge': {'priority': 0x11000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001010'):
-                    {'bridge': {'priority': 0x12000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}}}
-        self.stp.set_config(config)
-        # self.logger.debug('[STP] Configuring STP Priority and Fwd_delay')
-
-    # Handy function that lists all attributes in the given object
-    def ls(self, obj):
-        print("\n".join([x for x in dir(obj) if x[0] != "_"]))
-
-    def add_flow(self, datapath, priority, match, actions):
+    def add_flow(self, datapath, priority, match, actions, buffer_id=None):
+        """ Add flow to datapath"""
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
+
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
-        mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-                                match=match, instructions=inst)
-        self.logger.debug('[OFP] -- Adding Flow to [dpid=%s]',
-                          dpid_lib.dpid_to_str(datapath.id))
+        if buffer_id:
+            mod = parser.OFPFlowMod(datapath=datapath, buffer_id=buffer_id,
+                                    priority=priority, match=match,
+                                    instructions=inst)
+        else:
+            mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
+                                    match=match, instructions=inst)
         datapath.send_msg(mod)
 
-    def delete_flow(self, datapath, dst_mac):
+    def delete_flow(self, datapath):
+        """ Delete all flows in datapath """
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-        match = parser.OFPMatch(eth_dst=dst_mac)
-        mod = parser.OFPFlowMod(datapath, command=ofproto.OFPFC_DELETE,
-                                out_port=ofproto.OFPP_ANY,
-                                out_group=ofproto.OFPG_ANY,
-                                priority=1, match=match)
-        self.logger.debug('[OFP] -- Removig Flow from [dpid=%s]',
-                          dpid_lib.dpid_to_str(datapath.id))
-        datapath.send_msg(mod)
 
-    def get_network_topology(self, ev):
-        self.net.clear()
-        # Getting Switches Info (Nodes)
-        switch_list = get_switch(self, None)
-        for switch in switch_list:
-            self.net.add_node(switch.dp.id)
-        # Getting Links Info
-        links_list = get_link(self, None)
-        for link in links_list:
-            src_dpid = link.src.dpid
-            dst_dpid = link.dst.dpid
-            src_port_no = link.src.port_no
-            dst_port_no = link.dst.port_no
-            # Adding links do Directions Graph
-            self.net.add_edge(src_dpid, dst_dpid, {'port': src_port_no})
-            self.net.add_edge(dst_dpid, src_dpid, {'port': dst_port_no})
-        # self.logger.debug("[NetworkX] -- Topology Complete")
-        for dpid_str in self.stp_blocked_ports:
-            for src, dst, data in self.net.out_edges(dpid_str, data=True):
-                if data['port'] == self.stp_blocked_ports[dpid_str]:
-                    self.net.remove_edge(src, dst)
+        for dst in self.mac_to_port[datapath.id].keys():
+            match = parser.OFPMatch(eth_dst=dst)
+            mod = parser.OFPFlowMod(
+                datapath, command=ofproto.OFPFC_DELETE,
+                out_port=ofproto.OFPP_ANY, out_group=ofproto.OFPG_ANY,
+                priority=1, match=match)
+            datapath.send_msg(mod)
 
-        hosts = get_host(self)
-        for host in hosts:
-            self.net.add_node(host.mac)
-            sw_dpid_str = dpid_lib.dpid_to_str(host.port.dpid)
-            sw_port_no = host.port.port_no
-            self.net.add_edge(host.mac, sw_dpid_str, {'port': 1})
-            self.net.add_edge(sw_dpid_str, host.mac, {'port': sw_port_no})
+    def _send_packet(self, datapath, pkt, port=None):
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        pkt.serialize()
+        self.logger.info("packet-out %s " % (pkt,))
+        data = pkt.data
+        if port:
+            actions = [parser.OFPActionOutput(port=port)]
+        else:
+            actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
+        out = parser.OFPPacketOut(datapath=datapath,
+                                  buffer_id=ofproto.OFP_NO_BUFFER,
+                                  in_port=ofproto . OFPP_CONTROLLER,
+                                  actions=actions, data=data)
+        datapath.send_msg(out)
 
-    def get_dst_by_src(self, src_node, src_port):
-        """ Search for destination DPID or MAC by Source(DPID OR MAC)
-            and Source Port
-        """
-        for src, dst, port in self.net.edges(data='port'):
-            if src == src_node and port == src_port:
-                return dst
+    def _arp_handler(self, msg):
+        datapath = msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        in_port = msg.match['in_port']
+        dpid = datapath.id
 
-    # -------------------- Topology events --------------------
-    @set_ev_cls(event.EventSwitchEnter)
-    def switch_enter_handler(self, ev):
-        # self.logger.debug("[Event] -- SwitchEnter")
-        self.get_network_topology(ev)
 
-    # -------------------- OpenFlow events --------------------
+        pkt = packet.Packet(msg.data)
+        pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
+        pkt_arp = pkt.get_protocol(arp.arp)
+
+        if pkt_eth:
+            dst = pkt_eth.dst
+            src = pkt_eth.src
+
+        # If packet is MAC Broadcast drop it
+        if dst == mac.BROADCAST_STR and pkt_arp:
+            # Grab the IP address from ARP pkt
+            arp_dst_ip = pkt_arp.dst_ip
+
+
+
+
+    def _discover_hosts(self, pkt_ethernet, pkt_arp):
+        datapath = self.switches[4]
+        pkt = packet.Packet()
+        pkt.add_protocol(ethernet.ethernet())
+        pkt.add_protocol(arp.arp(opcode=arp.ARP_REQUEST,
+                                 src_mac=self.hw_addr,
+                                 src_ip=self.ip_addr,
+                                 dst_mac='ff:ff:ff:ff:ff:ff',
+                                 dst_ip='0.0.0.0'))
+        self._send_packet(datapath, pkt)
+
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
-    def switch_features_handler(self, ev):
+    def _switch_features_handler(self, ev):
         datapath = ev.msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
+
+        # save the list of switches
+        if datapath not in self.switches:
+            self.switches.append(datapath)
+            self.logger.info("Switch %s added to list", datapath.id)
 
         # install table-miss flow entry
         #
@@ -182,134 +142,77 @@ class SimpleSwitch13(app_manager.RyuApp):
         # OVS bug. At this moment, if we specify a lesser number, e.g.,
         # 128, OVS will send Packet-In with invalid buffer_id and
         # truncated packet data. In that case, we cannot output packets
-        # correctly.
+        # correctly.  The bug has been fixed in OVS v2.1.0.
         match = parser.OFPMatch()
         actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
                                           ofproto.OFPCML_NO_BUFFER)]
         self.add_flow(datapath, 0, match, actions)
 
-    @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
-    def _port_status_handler(self, ev):
-        self.logger.debug('[EventOFPPortStatus] -- Port status change')
-        msg = ev.msg
-        datapath = msg.datapath
-        ofproto = datapath.ofproto
-        ofpport = msg.desc
-        dpid_str = dpid_lib.dpid_to_str(datapath.id)
-        # Detecting a host down (Possibly moving?)
-        if msg.reason == ofproto.OFPPR_MODIFY \
-                and ofpport.state == ofproto.OFPPS_LINK_DOWN:
-            # Clear the NetworkGraph when detect LINK_DOWN
-            port_no = ofpport.port_no
-            dst_node = self.get_dst_by_src(datapath.id, port_no)
-            if not None and dst_node in self.net:
-                self.logger.info("[HOST DOWN] Removing [mac %s] on " +
-                                 "[dpid=%s] [port=%d]",
-                                 dst_node, dpid_str, port_no)
-                # removing node from Graph
-                self.net.remove_node(dst_node)
-                # Clearing old flows (relates to host MAC)
-                for dp_id, datapath in self.dpset.get_all():
-                    self.delete_flow(datapath, dst_node)
-
-    @set_ev_cls(stplib.EventPacketIn, MAIN_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
-
-        # Discards truncated packets
         # If you hit this you might want to increase
         # the "miss_send_length" of your switch
         if ev.msg.msg_len < ev.msg.total_len:
-            self.logger.debug("Packet truncated: only %s of %s bytes",
-                              ev.msg.msg_len, ev.msg.total_len)
-
+            self.logger.info("packet truncated: only %s of %s bytes",
+                             ev.msg.msg_len, ev.msg.total_len)
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         in_port = msg.match['in_port']
-        pkt = packet.Packet(msg.data)
-        eth = pkt.get_protocols(ethernet.ethernet)[0]
-
-        # Ignoring lldp packet
-        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            return
-
-        dst = eth.dst
-        src = eth.src
         dpid = datapath.id
-        self.mac_to_port.setdefault(dpid, {})
-        # Logging Packet in event
-        self.logger.info("Packet in %s %s %s %s", dpid_lib.dpid_to_str(dpid),
-                         src, dst, in_port)
 
-        # learn a mac address to avoid FLOOD next time. Save the MAC/PORT
-        # to update the network topology later
-        # self.mac_to_port[dpid][src] = in_port
-        if src not in self.net:
-            self.net.add_node(src)
-            self.net.add_edge(dpid, src, {'port': in_port})
-            self.net.add_edge(src, dpid)
-        # Try to get the destination from Network Graph
-        # out_port fetched from NetworkX
-        # if dst in self.mac_to_port[dpid]:
-        #     out_port = self.mac_to_port[dpid][dst]
-        # else:
-        #     out_port = ofproto.OFPP_FLOOD
-        if dst in self.net:
-            try:
-                path = nx.shortest_path(self.net, src, dst)
-                next_hop = path[path.index(dpid) + 1]
-                out_port = self.net[dpid][next_hop]['port']
-            except:
-                out_port = ofproto.OFPP_FLOOD
-                self.logger.debug('[WARNING] Host in list but no path')
-                self.logger.debug('[WARNING] Recalculating Topology')
-                self.get_network_topology(ev)
+        pkt = packet.Packet(msg.data)
+        pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
+        pkt_arp = pkt.get_protocol(arp.arp)
+        dst = pkt_eth.dst
+        src = pkt_eth.src
+
+        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
+
+        if pkt_arp:
+            # Larn MAC x IP to Global ARP Table
+            self.arp_table[pkt_arp.src_ip] = src
+            self.logger.info('ARP Table: Adding %s->%s', pkt_arp.src_ip, src)
+
+        # learn a mac address to avoid FLOOD next time.
+        self.mac_to_port.setdefault(dpid, {})
+        if src not in [target_mac for datapath_mac in
+                       self.mac_to_port.values()
+                       for target_mac in datapath_mac]:
+            self.mac_to_port[dpid][src] = in_port
+            self.logger.info("Mac2Port: Adding %s[port=%s]", src, in_port)
+
+        if dst in self.mac_to_port[dpid]:
+            out_port = self.mac_to_port[dpid][dst]
+            self.logger.info('Dst in Mac2Port: [mac=%s][Port=]', dst, out_port)
         else:
-            out_port = ofproto.OFPP_FLOOD
-        # Create OpenFlow Action (Out in port...)
+            self.logger.info('Mac2Port -- Unknow MAC: %s', dst)
+            if self._arp_handler(msg) == ARP_MSG_DROP:
+                self.logger.info('ARP FLOOD -- Discarding packages')
+                return
+            else:
+                # ARP_MSG_FLOOD
+                out_port = ofproto.OFPP_FLOOD
+
         actions = [parser.OFPActionOutput(out_port)]
 
-        # Install a flow in switch to avoid pkt_in next time
+        # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
-            self.add_flow(datapath, 1, match, actions)
+            # verify if we have a valid buffer_id, if yes avoid to send both
+            # flow_mod & packet_out
+            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
+                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
+                return
+            else:
+                self.add_flow(datapath, 1, match, actions)
+            data = None
+            if msg.buffer_id == ofproto.OFP_NO_BUFFER:
+                data = msg.data
 
-        data = None
-        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-            data = msg.data
-
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
-                                  in_port=in_port, actions=actions, data=data)
-        datapath.send_msg(out)
-
-    @set_ev_cls(stplib.EventTopologyChange, MAIN_DISPATCHER)
-    def _topology_change_handler(self, ev):
-        self.get_network_topology(ev)
-        # dp = ev.dp
-        # dpid_str = dpid_lib.dpid_to_str(dp.id)
-        # self.logger.debug(
-        #     "[Event] Topology Change: dpid=%s: Flushing MAC table",
-        #     dpid_str)
-
-        # if dp.id in self.mac_to_port:
-        #     self.delete_flow(dp)
-        #     del self.mac_to_port[dp.id]
-        # # Update topology
-        # self.get_network_topology(ev)
-
-    @set_ev_cls(stplib.EventPortStateChange, MAIN_DISPATCHER)
-    def _port_state_change_handler(self, ev):
-        self.logger.debug("[Event] Port State Change")
-        dpid_str = dpid_lib.dpid_to_str(ev.dp.id)
-        port_no = ev.port_no
-        port_state = ev.port_state
-        # update networkGraph when port state is disabled or blocked
-        if port_state == stplib.PORT_STATE_DISABLE \
-           or port_state == stplib.PORT_STATE_BLOCK:
-            self.stp_blocked_ports[dpid_str] = port_no
-        # remove from blocked ports when it is alive
-        if port_state in {stplib.PORT_STATE_LISTEN, stplib.PORT_STATE_LEARN,
-                          stplib.PORT_STATE_FORWARD}:
-            if dpid_str in self.stp_blocked_ports:
-                del self.stp_blocked_ports[dpid_str]
+            out = parser.OFPPacketOut(datapath=datapath,
+                                      buffer_id=msg.buffer_id,
+                                      in_port=in_port, actions=actions,
+                                      data=data)
+            datapath.send_msg(out)

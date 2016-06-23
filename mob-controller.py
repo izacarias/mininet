@@ -2,120 +2,42 @@ from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER, MAIN_DISPATCHER
 from ryu.controller.handler import set_ev_cls
-from ryu.ofproto import ofproto_v1_3
-from ryu.lib import dpid as dpid_lib
-from ryu.lib import stplib
-from ryu.lib.packet import packet
 from ryu.lib.packet import ethernet
-from ryu.lib.packet import ether_types
-# Used for Topology discover
-from ryu.topology.api import get_switch, get_link
-from ryu.app.wsgi import ControllerBase
-from ryu.topology import event, switches
+from ryu.lib.packet import packet
+from ryu.ofproto import ofproto_v1_3
+from ryu.ofproto.ether import ETH_TYPE_LLDP
+# Used for Topology Discover
+from ryu.topology import event
+# from ryu.topology import switches
+from ryu.topology.api import get_link
+from ryu.topology.api import get_switch
+# Used to process graphs
 import networkx as nx
+# Debug only
+import pprint
+import copy
+
 
 class SimpleSwitch13(app_manager.RyuApp):
     OFP_VERSIONS = [ofproto_v1_3.OFP_VERSION]
-    _CONTEXTS = {'stplib': stplib.Stp}
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
         self.mac_to_port = {}
-        self.stp = kwargs['stplib']
+        self.topology_api_app = self
+        # Internal representation of Network
         self.net = nx.DiGraph()
 
-        # Sample of stplib config.
-        #  please refer to stplib.Stp.set_config() for details.
-        stp_hello = 1
-        stp_delay = 2
-        config = {dpid_lib.str_to_dpid('0000000000000001'):
-                    {'bridge': {'priority': 0x1000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000006'):
-                    {'bridge': {'priority': 0x2000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000007'):
-                    {'bridge': {'priority': 0x3000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000002'):
-                    {'bridge': {'priority': 0x4000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000003'):
-                    {'bridge': {'priority': 0x5000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000008'):
-                    {'bridge': {'priority': 0x6000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000004'):
-                    {'bridge': {'priority': 0x7000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000009'):
-                    {'bridge': {'priority': 0x8000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000005'):
-                    {'bridge': {'priority': 0x9000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000000010'):
-                    {'bridge': {'priority': 0xa000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  # Need to configure the Station's STP priority
-                  dpid_lib.str_to_dpid('0000000000001002'):
-                    {'bridge': {'priority': 0xb000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001003'):
-                    {'bridge': {'priority': 0xc000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001004'):
-                    {'bridge': {'priority': 0xd000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001005'):
-                    {'bridge': {'priority': 0xe000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001007'):
-                    {'bridge': {'priority': 0xf000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001008'):
-                    {'bridge': {'priority': 0x10000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001009'):
-                    {'bridge': {'priority': 0x11000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}},
-                  dpid_lib.str_to_dpid('0000000000001010'):
-                    {'bridge': {'priority': 0x12000, 'fwd_delay': stp_delay,
-                     'hello_time': stp_hello}}}
-        self.stp.set_config(config)
-        self.stp.set_config(config)
-
-    def ls(self, obj):
-        print("\n".join([x for x in dir(obj) if x[0] != "_"]))
-
-    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
-    def switch_features_handler(self, ev):
-        datapath = ev.msg.datapath
+    def add_flow(self, datapath, in_port, dst, actions):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-
-        # install table-miss flow entry
-        #
-        # We specify NO BUFFER to max_len of the output action due to
-        # OVS bug. At this moment, if we specify a lesser number, e.g.,
-        # 128, OVS will send Packet-In with invalid buffer_id and
-        # truncated packet data. In that case, we cannot output packets
-        # correctly.
-        match = parser.OFPMatch()
-        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
-                                          ofproto.OFPCML_NO_BUFFER)]
-        self.add_flow(datapath, 0, match, actions)
-
-    def add_flow(self, datapath, priority, match, actions):
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-
+        match = datapath.ofproto_parser.OFPMatch(in_port=in_port, eth_dst=dst)
         inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
                                              actions)]
-
-        mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-                                match=match, instructions=inst)
+        mod = parser.OFPFlowMod(
+            datapath=datapath, match=match, cookie=0,
+            command=ofproto.OFPFC_ADD, idle_timeout=0, hard_timeout=0,
+            priority=ofproto.OFP_DEFAULT_PRIORITY, instructions=inst)
         datapath.send_msg(mod)
 
     def delete_flow(self, datapath):
@@ -130,98 +52,120 @@ class SimpleSwitch13(app_manager.RyuApp):
                 priority=1, match=match)
             datapath.send_msg(mod)
 
-    @set_ev_cls(stplib.EventPacketIn, MAIN_DISPATCHER)
+    @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
+    def _switch_features_handler(self, ev):
+        """ Handle data on receive switch features list """
+        self.logger.info("Receiving a EventOFPSwitchFeatures...")
+        datapath = ev.msg.datapath
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        match = parser.OFPMatch()
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+                                          ofproto.OFPCML_NO_BUFFER)]
+        inst = [parser.OFPInstructionActions(ofproto.OFPIT_APPLY_ACTIONS,
+                                             actions)]
+        mod = datapath.ofproto_parser.OFPFlowMod(datapath=datapath,
+                                                 match=match,
+                                                 cookie=0,
+                                                 command=ofproto.OFPFC_ADD,
+                                                 idle_timeout=0,
+                                                 hard_timeout=0,
+                                                 priority=0,
+                                                 instructions=inst)
+        datapath.send_msg(mod)
+        self.add_flow(datapath, 0, match, actions)
+
+    @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def _packet_in_handler(self, ev):
-
-        # Discards truncated packets
-        # If you hit this you might want to increase
-        # the "miss_send_length" of your switch
-        if ev.msg.msg_len < ev.msg.total_len:
-            self.logger.debug("Packet truncated: only %s of %s bytes",
-                              ev.msg.msg_len, ev.msg.total_len)
-
+        # Getting data abou Event
         msg = ev.msg
         datapath = msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         in_port = msg.match['in_port']
-
+        # Getting packet and ether frame
         pkt = packet.Packet(msg.data)
         eth = pkt.get_protocols(ethernet.ethernet)[0]
-
-        # Ignoring lldp packet
-        if eth.ethertype == ether_types.ETH_TYPE_LLDP:
-            return
-
+        # Getting source, destination and DatapathID
         dst = eth.dst
         src = eth.src
-
         dpid = datapath.id
         self.mac_to_port.setdefault(dpid, {})
 
-        self.logger.info("packet in %s %s %s %s",
-                         dpid_lib.dpid_to_str(dpid), src, dst, in_port)
+        # Ignoring LLDP packets
+        if eth.ethertype == ETH_TYPE_LLDP:
+            return
 
-        # learn a mac address to avoid FLOOD next time.
-        self.mac_to_port[dpid][src] = in_port
+        # Loggin packet in messages
+        self.logger.info("OFP -- EventOFPPacketIn")
+        self.logger.info("... Packet in %s %s %s %s", dpid, src, dst, in_port)
 
-        if dst in self.mac_to_port[dpid]:
-            out_port = self.mac_to_port[dpid][dst]
+        # Adding nodes to NetworkX Object
+        # If the source is not in the Graph, add it to graph
+        if src not in self.net:
+            self.logger.info(src + "Nx -- Adding " + src)
+            self.net.add_node(src)
+            self.net.add_edge(dpid, src, {'port': in_port})
+            self.net.add_edge(src, dpid)
+
+        # If destination host is on graph, grab the next hop,
+
+        self.logger.info("Nx -- Searching for " + dst)
+        if dst in self.net.nodes():
+            self.logger.info("Nx -- Found " + dst)
+            pprint.pprint(self.net.edges())
+            path = nx.shortest_path(self.net, src, dst)
+            next_hop = path[path.index(dpid) + 1]
+            out_port = self.net[dpid][next_hop]['port']
         else:
+            # Destination not in graph, need FLOOD the packet
+            self.logger.info(dst + " destination IS not in Net. FLOOD")
             out_port = ofproto.OFPP_FLOOD
 
         actions = [parser.OFPActionOutput(out_port)]
 
-        # install a flow to avoid packet_in next time
+        # install a Flow in the switch, so it do not causes a
+        # packet in Event next time
         if out_port != ofproto.OFPP_FLOOD:
-            match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
-            self.add_flow(datapath, 1, match, actions)
+            self.logger.info("OFP -- Adding flow to " + str(dpid))
+            self.add_flow(datapath, in_port, dst, actions)
 
-        data = None
-        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-            data = msg.data
+        out = parser.OFPPacketOut(datapath=datapath,
+                                  buffer_id=msg.buffer_id,
+                                  in_port=in_port,
+                                  actions=actions)
+        # learn a mac address to avoid FLOOD next time.
+        # self.mac_to_port[dpid][src] = in_port
+        # if dst in self.mac_to_port[dpid]:
+        #     out_port = self.mac_to_port[dpid][dst]
+        # else:
+        #     out_port = ofproto.OFPP_FLOOD
+        # install a flow to avoid packet_in next time
+        # if out_port != ofproto.OFPP_FLOOD:
+        #     match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
+        #     self.add_flow(datapath, 1, match, actions)
 
-        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
-                                  in_port=in_port, actions=actions, data=data)
+        # data = None
+        # if msg.buffer_id == ofproto.OFP_NO_BUFFER:
+        #     data = msg.data
+
+        # out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
+        #                           in_port=in_port, actions=actions,
+        #                           data=data)
         datapath.send_msg(out)
-
-    @set_ev_cls(stplib.EventTopologyChange, MAIN_DISPATCHER)
-    def _topology_change_handler(self, ev):
-        dp = ev.dp
-        dpid_str = dpid_lib.dpid_to_str(dp.id)
-        msg = 'Receive topology change event. Flush MAC table.'
-        self.logger.debug("[dpid=%s] %s", dpid_str, msg)
-
-        if dp.id in self.mac_to_port:
-            self.delete_flow(dp)
-            del self.mac_to_port[dp.id]
-
-    @set_ev_cls(stplib.EventPortStateChange, MAIN_DISPATCHER)
-    def _port_state_change_handler(self, ev):
-        dpid_str = dpid_lib.dpid_to_str(ev.dp.id)
-        of_state = {stplib.PORT_STATE_DISABLE: 'DISABLE',
-                    stplib.PORT_STATE_BLOCK: 'BLOCK',
-                    stplib.PORT_STATE_LISTEN: 'LISTEN',
-                    stplib.PORT_STATE_LEARN: 'LEARN',
-                    stplib.PORT_STATE_FORWARD: 'FORWARD'}
-        self.logger.debug("[dpid=%s][port=%d] state=%s",
-                          dpid_str, ev.port_no, of_state[ev.port_state])
 
     @set_ev_cls(event.EventSwitchEnter)
     def get_topology_data(self, ev):
-        switch_list = get_switch(self, None)
-        all_switches = [switch.dp.id for switch in switch_list]
-        self.net.add_nodes_from(all_switches)
-
-        links_list = get_link(self, None)
-        # print links_list
+        self.logger.info("Receiving a EventSwitchEnter...")
+        # Getting switch list
+        switch_list = copy.copy(get_switch(self, None))
+        switches = [switch.dp.id for switch in switch_list]
+        links_list = copy.copy(get_link(self, None))
         links = [(link.src.dpid, link.dst.dpid, {
                   'port': link.src.port_no}) for link in links_list]
-        # print links
+        # Adding nodes and edges to NetworkX
+        print switches
+        print links
+
+        self.net.add_nodes_from(switches)
         self.net.add_edges_from(links)
-        links = [(link.dst.dpid, link.src.dpid, {
-                  'port': link.dst.port_no}) for link in links_list]
-        # print links
-        self.net.add_edges_from(links)
-        print "**********List of links"
-        print self.net.edges()
