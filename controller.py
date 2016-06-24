@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or
 # implied.
 # See the License for the specific language governing permissions and
-# limitations under the License.
+# limitations under the License
 
 from ryu.base import app_manager
 from ryu.controller import ofp_event
@@ -25,7 +25,7 @@ from ryu.lib.packet import packet
 # Used to process graphs
 import networkx as nx
 # Debug only
-# from pprint import pprint
+from pprint import pprint
 
 # Constants for ARP FLOOD MANIPULATION
 ARP_MSG_DROP = True
@@ -40,6 +40,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.mac_to_port = {}
         self.switches = []
         self.arp_table = {}
+        self.sw_bcast = {}
         self.net = nx.DiGraph()
         # Neet for ARP request / response
         self.hw_addr = '0a:0a:0a:0a:0a:0a'
@@ -74,29 +75,12 @@ class SimpleSwitch13(app_manager.RyuApp):
                 priority=1, match=match)
             datapath.send_msg(mod)
 
-    def _send_packet(self, datapath, pkt, port=None):
-        ofproto = datapath.ofproto
-        parser = datapath.ofproto_parser
-        pkt.serialize()
-        self.logger.info("packet-out %s " % (pkt,))
-        data = pkt.data
-        if port:
-            actions = [parser.OFPActionOutput(port=port)]
-        else:
-            actions = [parser.OFPActionOutput(ofproto.OFPP_FLOOD)]
-        out = parser.OFPPacketOut(datapath=datapath,
-                                  buffer_id=ofproto.OFP_NO_BUFFER,
-                                  in_port=ofproto . OFPP_CONTROLLER,
-                                  actions=actions, data=data)
-        datapath.send_msg(out)
-
     def _arp_handler(self, msg):
         datapath = msg.datapath
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         in_port = msg.match['in_port']
         dpid = datapath.id
-
 
         pkt = packet.Packet(msg.data)
         pkt_eth = pkt.get_protocols(ethernet.ethernet)[0]
@@ -108,22 +92,47 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         # If packet is MAC Broadcast drop it
         if dst == mac.BROADCAST_STR and pkt_arp:
+            self.logger.info('_arp_handler: Destination is Broadcast Addr')
             # Grab the IP address from ARP pkt
             arp_dst_ip = pkt_arp.dst_ip
 
+            if (dpid, src, arp_dst_ip) in self.sw_bcast:
+                if self.sw_bcast[(dpid, src, arp_dst_ip)] != in_port:
+                    datapath.send_packet_out(in_port=in_port, actions=[])
+                    return True
+                else:
+                    self.sw_bcast[(dpid, src, arp_dst_ip)] = in_port
 
+        if pkt_arp:
+            opcode = pkt_arp.opcode
+            arp_src_ip = pkt_arp.src_ip
+            arp_dst_ip = pkt_arp.dst_ip
 
-
-    def _discover_hosts(self, pkt_ethernet, pkt_arp):
-        datapath = self.switches[4]
-        pkt = packet.Packet()
-        pkt.add_protocol(ethernet.ethernet())
-        pkt.add_protocol(arp.arp(opcode=arp.ARP_REQUEST,
-                                 src_mac=self.hw_addr,
-                                 src_ip=self.ip_addr,
-                                 dst_mac='ff:ff:ff:ff:ff:ff',
-                                 dst_ip='0.0.0.0'))
-        self._send_packet(datapath, pkt)
+            if opcode == arp.ARP_REQUEST:
+                if arp_dst_ip in self.arp_table:
+                    actions = [parser.OFPActionOutput(in_port)]
+                    # Create ARP Reply
+                    arp_rply = packet.Packet()
+                    arp_rply.add_protocol(ethernet.ethernet(
+                        ethertype=pkt_eth.ethertype,
+                        dst=src,
+                        src=self.arp_table[arp_dst_ip]))
+                    arp_rply.add_protocol(arp.arp(
+                        opcode=arp.ARP_REPLY,
+                        src_mac=self.arp_table[arp_dst_ip],
+                        src_ip=arp_dst_ip,
+                        dst_mac=src,
+                        dst_ip=arp_src_ip))
+                    arp_rply.serialize()
+                    # Send packet via datapath
+                    out = parser.OFPPacketOut(datapath=datapath,
+                                              buffer_id=ofproto.OFP_NO_BUFFER,
+                                              in_port=ofproto.OFPP_CONTROLLER,
+                                              actions=actions,
+                                              data=arp_rply.data)
+                    datapath.send_msg(out)
+                    return True
+        return False
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def _switch_features_handler(self, ev):
@@ -173,27 +182,24 @@ class SimpleSwitch13(app_manager.RyuApp):
         if pkt_arp:
             # Larn MAC x IP to Global ARP Table
             self.arp_table[pkt_arp.src_ip] = src
-            self.logger.info('ARP Table: Adding %s->%s', pkt_arp.src_ip, src)
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port.setdefault(dpid, {})
-        if src not in [target_mac for datapath_mac in
-                       self.mac_to_port.values()
-                       for target_mac in datapath_mac]:
-            self.mac_to_port[dpid][src] = in_port
-            self.logger.info("Mac2Port: Adding %s[port=%s]", src, in_port)
+        self.mac_to_port[dpid][src] = in_port
 
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
             self.logger.info('Dst in Mac2Port: [mac=%s][Port=]', dst, out_port)
         else:
-            self.logger.info('Mac2Port -- Unknow MAC: %s', dst)
-            if self._arp_handler(msg) == ARP_MSG_DROP:
+            self.logger.info('Mac2Port -- Unknow MAC: [dpid=%s] [mac=%s]',
+                             dpid, dst)
+            if self._arp_handler(msg):
                 self.logger.info('ARP FLOOD -- Discarding packages')
                 return
             else:
                 # ARP_MSG_FLOOD
                 out_port = ofproto.OFPP_FLOOD
+                self.logger.info('ARP FLOOD -- Flooding Network')
 
         actions = [parser.OFPActionOutput(out_port)]
 
@@ -207,12 +213,10 @@ class SimpleSwitch13(app_manager.RyuApp):
                 return
             else:
                 self.add_flow(datapath, 1, match, actions)
-            data = None
-            if msg.buffer_id == ofproto.OFP_NO_BUFFER:
-                data = msg.data
+        data = None
+        if msg.buffer_id == ofproto.OFP_NO_BUFFER:
+            data = msg.data
 
-            out = parser.OFPPacketOut(datapath=datapath,
-                                      buffer_id=msg.buffer_id,
-                                      in_port=in_port, actions=actions,
-                                      data=data)
-            datapath.send_msg(out)
+        out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
+                                  in_port=in_port, actions=actions, data=data)
+        datapath.send_msg(out)
