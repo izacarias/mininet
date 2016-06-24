@@ -62,18 +62,26 @@ class SimpleSwitch13(app_manager.RyuApp):
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
 
-    def delete_flow(self, datapath):
+    def delete_flow(self, datapath, eth_dst=None):
         """ Delete all flows in datapath """
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
 
-        for dst in self.mac_to_port[datapath.id].keys():
-            match = parser.OFPMatch(eth_dst=dst)
-            mod = parser.OFPFlowMod(
-                datapath, command=ofproto.OFPFC_DELETE,
-                out_port=ofproto.OFPP_ANY, out_group=ofproto.OFPG_ANY,
-                priority=1, match=match)
-            datapath.send_msg(mod)
+        if eth_dst:
+            match = parser.OFPMatch(eth_dst=eth_dst)
+            mod = parser.OFPFlowMod(datapath=datapath,
+                                    command=ofproto.OFPFC_DELETE,
+                                    out_port=ofproto.OFPP_ANY,
+                                    out_group=ofproto.OFPG_ANY,
+                                    priority=1, match=match)
+        else:
+            for dst in self.mac_to_port[datapath.id].keys():
+                match = parser.OFPMatch(eth_dst=dst)
+                mod = parser.OFPFlowMod(
+                    datapath, command=ofproto.OFPFC_DELETE,
+                    out_port=ofproto.OFPP_ANY, out_group=ofproto.OFPG_ANY,
+                    priority=1, match=match)
+                datapath.send_msg(mod)
 
     def _arp_handler(self, msg):
         datapath = msg.datapath
@@ -96,13 +104,16 @@ class SimpleSwitch13(app_manager.RyuApp):
             # Grab the IP address from ARP pkt
             arp_dst_ip = pkt_arp.dst_ip
 
+            self.logger.info("Searching for %s, %s, %s in:", dpid, src,
+                             arp_dst_ip)
             if (dpid, src, arp_dst_ip) in self.sw_bcast:
                 if self.sw_bcast[(dpid, src, arp_dst_ip)] != in_port:
                     datapath.send_packet_out(in_port=in_port, actions=[])
                     return True
-                else:
-                    self.sw_bcast[(dpid, src, arp_dst_ip)] = in_port
-
+            else:
+                self.sw_bcast[(dpid, src, arp_dst_ip)] = in_port
+                self.logger.info("Adding %s, %s, %s to sw_bcast.", dpid,
+                                 src, arp_dst_ip)
         if pkt_arp:
             opcode = pkt_arp.opcode
             arp_src_ip = pkt_arp.src_ip
@@ -133,6 +144,13 @@ class SimpleSwitch13(app_manager.RyuApp):
                     datapath.send_msg(out)
                     return True
         return False
+
+    def _get_mac_by_datapath_port(self, dpid, port):
+        """ Return the MAC address by Datapath ID and Path """
+        for mac_address in self.mac_to_port[dpid]:
+            if self.mac_to_port[dpid][mac_address] == port:
+                return mac_address
+        return None
 
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
     def _switch_features_handler(self, ev):
@@ -185,11 +203,16 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port.setdefault(dpid, {})
-        self.mac_to_port[dpid][src] = in_port
+        if src not in self.mac_to_port[dpid]:
+            self.logger.info('Mac2Port -- Adding [dpid=%s][mac=%s][port=%d]',
+                             dpid, src, in_port)
+            self.mac_to_port[dpid][src] = in_port
 
+        self.logger.info("Searching for [dst=%s] in [dpid=%s]", dst, dpid)
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
-            self.logger.info('Dst in Mac2Port: [mac=%s][Port=]', dst, out_port)
+            self.logger.info('Dst in Mac2Port: [dpid=%s][mac=%s][Port=%d]',
+                             dpid, dst, out_port)
         else:
             self.logger.info('Mac2Port -- Unknow MAC: [dpid=%s] [mac=%s]',
                              dpid, dst)
@@ -202,7 +225,6 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.logger.info('ARP FLOOD -- Flooding Network')
 
         actions = [parser.OFPActionOutput(out_port)]
-
         # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
@@ -220,3 +242,67 @@ class SimpleSwitch13(app_manager.RyuApp):
         out = parser.OFPPacketOut(datapath=datapath, buffer_id=msg.buffer_id,
                                   in_port=in_port, actions=actions, data=data)
         datapath.send_msg(out)
+
+    # Port Status Event
+    @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
+    def _port_status_handler(self, ev):
+        msg = ev.msg
+        reason = msg.reason
+        port_no = msg.desc.port_no
+        dpid = msg.datapath.id
+        ofproto = msg.datapath.ofproto
+        mac = ""
+
+        if reason == ofproto.OFPPR_DELETE:
+            self.logger.info("Port deleted: [dpid=%s]:[port=%d]", dpid,
+                             port_no)
+            mac = self._get_mac_by_datapath_port(dpid, port_no)
+            self.logger.info("Mac a ser removido das tabelas: %s", mac)
+
+            # Remover de self.mac_to_port
+            print("----------- mac_to_port ------------")
+            pprint(self.mac_to_port)
+            print("------------- sw_bcast -------------")
+            # Remover de sw_broadcast
+            pprint(self.sw_bcast)
+
+
+
+# ----------- mac_to_port ------------
+# {1: {'00:00:00:00:00:01': 1, '00:00:00:00:00:02': 6},
+#  2: {'00:00:00:00:00:01': 2},
+#  3: {'00:00:00:00:00:01': 1, '00:00:00:00:00:02': 5},
+#  4: {'00:00:00:00:00:01': 4, '00:00:00:00:00:02': 5},
+#  5: {'00:00:00:00:00:01': 2, '00:00:00:00:00:02': 5},
+#  6: {'00:00:00:00:00:01': 2, '00:00:00:00:00:02': 1},
+#  7: {'00:00:00:00:00:01': 1},
+#  8: {'00:00:00:00:00:01': 1},
+#  9: {'00:00:00:00:00:01': 2, '00:00:00:00:00:02': 3},
+#  16: {'00:00:00:00:00:01': 2, '00:00:00:00:00:02': 3},
+#  4098: {'00:00:00:00:00:01': 1},
+#  4099: {'00:00:00:00:00:01': 1},
+#  4100: {'00:00:00:00:00:01': 1},
+#  4101: {'00:00:00:00:00:01': 1},
+#  4103: {'00:00:00:00:00:01': 1},
+#  4104: {'00:00:00:00:00:01': 1},
+#  4105: {'00:00:00:00:00:01': 1},
+#  4112: {'00:00:00:00:00:01': 1}}
+# ------------- sw_bcast -------------
+# {(1, '00:00:00:00:00:01', '10.0.0.2'): 1,
+#  (2, '00:00:00:00:00:01', '10.0.0.2'): 2,
+#  (3, '00:00:00:00:00:01', '10.0.0.2'): 1,
+#  (4, '00:00:00:00:00:01', '10.0.0.2'): 4,
+#  (5, '00:00:00:00:00:01', '10.0.0.2'): 2,
+#  (6, '00:00:00:00:00:01', '10.0.0.2'): 2,
+#  (7, '00:00:00:00:00:01', '10.0.0.2'): 1,
+#  (8, '00:00:00:00:00:01', '10.0.0.2'): 1,
+#  (9, '00:00:00:00:00:01', '10.0.0.2'): 2,
+#  (16, '00:00:00:00:00:01', '10.0.0.2'): 2,
+#  (4098, '00:00:00:00:00:01', '10.0.0.2'): 1,
+#  (4099, '00:00:00:00:00:01', '10.0.0.2'): 1,
+#  (4100, '00:00:00:00:00:01', '10.0.0.2'): 1,
+#  (4101, '00:00:00:00:00:01', '10.0.0.2'): 1,
+#  (4103, '00:00:00:00:00:01', '10.0.0.2'): 1,
+#  (4104, '00:00:00:00:00:01', '10.0.0.2'): 1,
+#  (4105, '00:00:00:00:00:01', '10.0.0.2'): 1,
+#  (4112, '00:00:00:00:00:01', '10.0.0.2'): 1}
