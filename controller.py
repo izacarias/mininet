@@ -62,6 +62,24 @@ class SimpleSwitch13(app_manager.RyuApp):
                                     match=match, instructions=inst)
         datapath.send_msg(mod)
 
+    def clear_flows(self, datapath):
+        """ Clear all flows from datapath -- OF1_3 problem """
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+        empty_match = parser.OFPMatch()
+        instructions = []
+        mod = datapath.ofproto_parser.OFPFlowMod(
+            datapath=datapath, cookie=0, cookie_mask=0, table_id=0,
+            command=ofproto.OFPFC_DELETE, priority=1,
+            buffer_id=ofproto.OFPCML_NO_BUFFER, out_port=ofproto.OFPP_ANY,
+            out_group=ofproto.OFPG_ANY, flags=0, match=empty_match,
+            instructions=instructions)
+        datapath.send_msg(mod)
+        # Install table miss flow
+        actions = [parser.OFPActionOutput(ofproto.OFPP_CONTROLLER,
+                                          ofproto.OFPCML_NO_BUFFER)]
+        self.add_flow(datapath, 0, empty_match, actions)
+
     def delete_flow(self, datapath, eth_dst=None):
         """ Delete all flows in datapath """
         ofproto = datapath.ofproto
@@ -99,21 +117,23 @@ class SimpleSwitch13(app_manager.RyuApp):
             src = pkt_eth.src
 
         # If packet is MAC Broadcast drop it
-        if dst == mac.BROADCAST_STR and pkt_arp:
+        if dst == mac.BROADCAST_STR:  # and pkt_arp:
             self.logger.info('_arp_handler: Destination is Broadcast Addr')
             # Grab the IP address from ARP pkt
             arp_dst_ip = pkt_arp.dst_ip
+            arp_src_ip = pkt_arp.src_ip
 
             self.logger.info("Searching for %s, %s, %s in:", dpid, src,
                              arp_dst_ip)
-            if (dpid, src, arp_dst_ip) in self.sw_bcast:
-                if self.sw_bcast[(dpid, src, arp_dst_ip)] != in_port:
+            if (dpid, arp_src_ip, arp_dst_ip) in self.sw_bcast:
+                if self.sw_bcast[(dpid, arp_src_ip, arp_dst_ip)] != in_port:
                     datapath.send_packet_out(in_port=in_port, actions=[])
                     return True
             else:
-                self.sw_bcast[(dpid, src, arp_dst_ip)] = in_port
+                self.sw_bcast[(dpid, arp_src_ip, arp_dst_ip)] = in_port
                 self.logger.info("Adding %s, %s, %s to sw_bcast.", dpid,
                                  src, arp_dst_ip)
+                pprint(self.sw_bcast)
         if pkt_arp:
             opcode = pkt_arp.opcode
             arp_src_ip = pkt_arp.src_ip
@@ -147,6 +167,7 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     def _get_mac_by_datapath_port(self, dpid, port):
         """ Return the MAC address by Datapath ID and Path """
+        self.mac_to_port.setdefault(dpid, {})
         for mac_address in self.mac_to_port[dpid]:
             if self.mac_to_port[dpid][mac_address] == port:
                 return mac_address
@@ -258,6 +279,11 @@ class SimpleSwitch13(app_manager.RyuApp):
                              port_no)
             mac = self._get_mac_by_datapath_port(dpid, port_no)
             self.logger.info("Mac a ser removido das tabelas: %s", mac)
+
+            if mac:
+                # Clear old flows
+                for datapath in self.switches:
+                    self.clear_flows(datapath)
 
             # Remover de self.mac_to_port
             print("----------- mac_to_port ------------")
