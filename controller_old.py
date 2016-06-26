@@ -217,9 +217,12 @@ class SimpleSwitch13(app_manager.RyuApp):
         src = pkt_eth.src
 
         if pkt_arp:
+            self.logger.info("@@@@@@@@@ ARP PKT @@@@@@@@@@")
             # Larn MAC x IP to Global ARP Table
             self.arp_table[pkt_arp.src_ip] = src
             self.logger.info("Adding ARP entry: %s -> %s", pkt_arp.src_ip, src)
+            if self._arp_handler(msg):
+                return
 
         # Log packet in
         self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
@@ -253,7 +256,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
             self.add_flow(datapath, 1, match, actions)
-        
+
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
@@ -268,23 +271,27 @@ class SimpleSwitch13(app_manager.RyuApp):
         msg = ev.msg
         reason = msg.reason
         port_no = msg.desc.port_no
-        dpid = msg.datapath.id
-        ofproto = msg.datapath.ofproto
-        mac = ""
+        datapath = msg.datapath
+        dpid = datapath.id
+        ofproto = datapath.ofproto
+        parser = datapath.ofproto_parser
+
+        moving_mac = ""
 
         if reason == ofproto.OFPPR_DELETE:
-            self.logger.info("Port deleted: [dpid=%s]:[port=%d]", dpid,
-                             port_no)
-            mac = self._get_mac_by_datapath_port(dpid, port_no)
-            self.logger.info("Mac a ser removido das tabelas: %s", mac)
+            self.logger.info("Port deleted: [dpid=%s]:[port=%d]",
+                             dpid, port_no)
+            moving_mac = self._get_mac_by_datapath_port(dpid, port_no)
+            self.logger.info("Mac a ser removido das tabelas: %s", moving_mac)
 
-            if mac:
+            if moving_mac:
                 # Clear old flows
                 for datapath in self.switches:
                     self.clear_flows(datapath)
                 # Clearing broadcast control
                 self.sw_bcast.clear()
-                self.mac_to_port.clear()
+                self.clear_mac_to_port(moving_mac)
+                # self.mac_to_port.clear()
                 self.arp_table.clear()
 
             # Remover de self.mac_to_port
@@ -294,6 +301,31 @@ class SimpleSwitch13(app_manager.RyuApp):
             # Remover de sw_broadcast
             pprint(self.sw_bcast)
 
+        if reason == ofproto.OFPPR_ADD:
+            self.logger.info("Port added: [dpid=%s]:[port=%d]", dpid, port_no)
+            arp_req = packet.Packet()
+            arp_req.add_protocol(ethernet.ethernet(src=self.hw_addr))
+            arp_req.add_protocol(arp.arp_ip(opcode=arp.ARP_REQUEST,
+                                            src_mac=self.hw_addr,
+                                            src_ip=self.ip_addr,
+                                            dst_mac=mac.BROADCAST_STR,
+                                            dst_ip='0.0.0.0'))
+            arp_req.serialize()
+            data = arp_req.data
+            actions = [parser.OFPActionOutput(port=port_no)]
+            out = parser.OFPPacketOut(datapath=datapath,
+                                      buffer_id=ofproto.OFP_NO_BUFFER,
+                                      in_port=ofproto.OFPP_CONTROLLER,
+                                      actions=actions, data=data)
+            datapath.send_msg(out)
+
+
+    def clear_mac_to_port(self, mac):
+        for sw_dpid in self.mac_to_port.keys():
+            for mac_i in self.mac_to_port[sw_dpid].keys():
+                if mac_i == mac:
+                    del self.mac_to_port[sw_dpid][mac]
+        pprint(self.mac_to_port)
 
 
 # ----------- mac_to_port ------------
