@@ -216,23 +216,25 @@ class SimpleSwitch13(app_manager.RyuApp):
         dst = pkt_eth.dst
         src = pkt_eth.src
 
-        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
-
         if pkt_arp:
             # Larn MAC x IP to Global ARP Table
             self.arp_table[pkt_arp.src_ip] = src
+            self.logger.info("Adding ARP entry: %s -> %s", pkt_arp.src_ip, src)
+
+        # Log packet in
+        self.logger.info("packet in %s %s %s %s", dpid, src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time.
         self.mac_to_port.setdefault(dpid, {})
         if src not in self.mac_to_port[dpid]:
+            self.mac_to_port[dpid][src] = in_port
             self.logger.info('Mac2Port -- Adding [dpid=%s][mac=%s][port=%d]',
                              dpid, src, in_port)
-            self.mac_to_port[dpid][src] = in_port
+            pprint(self.mac_to_port)
 
-        self.logger.info("Searching for [dst=%s] in [dpid=%s]", dst, dpid)
         if dst in self.mac_to_port[dpid]:
             out_port = self.mac_to_port[dpid][dst]
-            self.logger.info('Dst in Mac2Port: [dpid=%s][mac=%s][Port=%d]',
+            self.logger.info('Mac2Port -- Found [dpid=%s][mac=%s][Port=%d]',
                              dpid, dst, out_port)
         else:
             self.logger.info('Mac2Port -- Unknow MAC: [dpid=%s] [mac=%s]',
@@ -284,6 +286,10 @@ class SimpleSwitch13(app_manager.RyuApp):
                 # Clear old flows
                 for datapath in self.switches:
                     self.clear_flows(datapath)
+                # Clearing broadcast control
+                self.sw_bcast.clear()
+                self.mac_to_port.clear()
+                self.arp_table.clear()
 
             # Remover de self.mac_to_port
             print("----------- mac_to_port ------------")
