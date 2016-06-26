@@ -236,28 +236,24 @@ class SimpleSwitch13(app_manager.RyuApp):
             out_port = self.mac_to_port[dpid][dst]
             self.logger.info('Mac2Port -- Found [dpid=%s][mac=%s][Port=%d]',
                              dpid, dst, out_port)
+            # else:
+            # self.logger.info('Mac2Port -- Unknow MAC: [dpid=%s] [mac=%s]',
+            #                  dpid, dst)
+            # if self._arp_handler(msg):
+            #     self.logger.info('ARP FLOOD -- Discarding packages')
+            #     return
         else:
-            self.logger.info('Mac2Port -- Unknow MAC: [dpid=%s] [mac=%s]',
-                             dpid, dst)
-            if self._arp_handler(msg):
-                self.logger.info('ARP FLOOD -- Discarding packages')
-                return
-            else:
-                # ARP_MSG_FLOOD
-                out_port = ofproto.OFPP_FLOOD
-                self.logger.info('ARP FLOOD -- Flooding Network')
+            # ARP_MSG_FLOOD
+            out_port = ofproto.OFPP_FLOOD
+            self.logger.info('ARP FLOOD -- Flooding Network')
+            pprint(self.mac_to_port)
 
         actions = [parser.OFPActionOutput(out_port)]
         # install a flow to avoid packet_in next time
         if out_port != ofproto.OFPP_FLOOD:
             match = parser.OFPMatch(in_port=in_port, eth_dst=dst)
-            # verify if we have a valid buffer_id, if yes avoid to send both
-            # flow_mod & packet_out
-            if msg.buffer_id != ofproto.OFP_NO_BUFFER:
-                self.add_flow(datapath, 1, match, actions, msg.buffer_id)
-                return
-            else:
-                self.add_flow(datapath, 1, match, actions)
+            self.add_flow(datapath, 1, match, actions)
+        
         data = None
         if msg.buffer_id == ofproto.OFP_NO_BUFFER:
             data = msg.data
