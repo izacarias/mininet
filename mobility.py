@@ -27,7 +27,10 @@ from mininet.term import makeTerm
 from random import randint
 import time
 
-HOST_NUMBER = 3
+HOST_NUMBER = 9
+MOVE_SERVER = False
+MOVIE_FILE_NAME = '720x480_5mb.mp4'
+host_switch = {}
 
 
 class MobilitySwitch(OVSSwitch):
@@ -93,6 +96,7 @@ class FinalTopo(Topo):
     """docstring for ClassName"""
 
     def build(self):
+        global host_switch
         # Creating Hosts h0 to ...
         hs = [self.addHost('h%d' % i) for i in range(0, HOST_NUMBER)]
         # Creating APs (Switches)
@@ -154,7 +158,10 @@ class FinalTopo(Topo):
                bottomMiddleSwitch,
                bottomRightSwitch]
         for h in hs:
-            self.addLink(h, sws[randint(0, len(sws) - 1)])
+            sw = sws[randint(0, len(sws) - 1)]
+            self.addLink(h, sw)
+            # Store initial ref host x switch
+            host_switch[h] = sw
 
 
 def printConnections(switches):
@@ -182,21 +189,23 @@ def vlcCommand(type='', host=None, curr_time_str=None):
     baseCommand = 'vlc-wrapper '
     if (type == 'server'):
         # media_file = '/home/mininet/720x480_5mb.mp4'
-        media_file = '/home/mininet/movie.mp4'
+        media_file = '/home/mininet/' + MOVIE_FILE_NAME
         # baseCommand += '-vvv '
         baseCommand += media_file + ' '
         baseCommand += '-I dummy '
         baseCommand += '--sout '
         # baseCommand += "'#transcode{vcodec=mp4v,acodec=none,vb=800,ab=128}"
         baseCommand += '"#http{mux=ffmpeg{mux=flv},dst=:8080}" '
-        baseCommand += '--loop '
+        # baseCommand += '--loop '
         baseCommand += '--sout-keep '
         return baseCommand
 
     if (type == 'client'):
         baseCommand += ' -vvv'
         baseCommand += ' http://10.0.0.1:8080'
-        baseCommand += ' --no-audio'
+        baseCommand += ' --novideo'
+        baseCommand += ' --noaudio'
+        baseCommand += ' --play-and-exit'
         if host:
             log_file_name = ""
             if curr_time_str:
@@ -207,16 +216,26 @@ def vlcCommand(type='', host=None, curr_time_str=None):
             baseCommand += ' --logfile=' + log_file_name + '.log'
         return baseCommand
 
+    if (type == 'ping'):
+        baseCommand = 'ping 10.0.0.1'
+        return baseCommand
+
 
 def mobilityTest():
     "Simple Random Mobility"
+    global host_switch
+    # list of hosts
+    h = []
+    ap = []
+    old = []
+    ap_names = ['ap2', 'ap3', 'ap4', 'ap5',
+                'ap7', 'ap8', 'ap9', 'ap10']
+    used_ports = {}
     # Getting Current time to save logs
     curr_time_str = time.strftime("%H%M%S")
     # Creating remote controller (on Host OS)
     c1 = RemoteController('c1', ip='192.168.56.1', port=6633)
     print '* Simple mobility test'
-    # net = Mininet(topo=LinearTopo(3), autoSetMacs=True,
-    #              switch=MobilitySwitch, controller=c1)
     # Using Custom Topology (FinalTopo)
     print "* Instanciating FinalTopo"
     topo = FinalTopo()
@@ -233,26 +252,56 @@ def mobilityTest():
     print '* Testing network'
     net.pingAll()
     print '* Identifying switch interface for h1'
-    h1, h2, old = net.get('h1', 'h2', 's6')
+    # Add hosts and old (actual) switches to list
+    for i in range(0, HOST_NUMBER):
+        h_name = 'h%d' % i
+        h.append(net.get(h_name))
+        old.append(net.get(host_switch[h_name]))
+    # create list of AP/Switches
+    for i in range(len(ap_names) - 1):
+        ap.append(net.get(ap_names[i]))
+        used_ports[ap_names[i]] = []
     # Running VLC Player
     # print vlcCommand('server')
-    makeTerm(h1, title='Streamer', cmd=vlcCommand('server'))
-    time.sleep(2)  # waiting for streaming server (1 sec)
-    makeTerm(h2, title='Client', cmd=vlcCommand('client', h2, curr_time_str))
+
+    makeTerm(h[0], title='Streamer', cmd=vlcCommand('server'))
+    # Wait for server starts stream
+    time.sleep(3)  # waiting for streaming server (1 sec)
+    # Make clients for VLC
+    for i in range(1, len(h)):
+        print "** Starting Clients"
+        vlc_command = vlcCommand('client', h[i], curr_time_str)
+        print vlc_command
+        makeTerm(h[i], title='Client', cmd=vlc_command)
+    # makeTerm(h2, title='Client', cmd=vlcCommand('client', h2, curr_time_str))
     print '* Starting "handovers"'
+    # Should move the server (starts in h0)
+    if MOVE_SERVER:
+        range_start = 0
+    else:
+        range_start = 1
     # Loop forever to test the controller (Stop with Ctrl+C)
-    for s in 2, 4, 7, 8, 9, 1:
-        new = net['s%d' % s]
-        port = randint(10, 20)
-        print '* Moving', h1, 'from', old, 'to', new, 'port', port
-        hintf, sintf = moveHost(h1, old, new, newPort=port)
-        print '* ', hintf, 'is now connected to', sintf
-        print '* New network:'
-        # printConnections(net.switches)
-        # print '* Testing connectivity:'
-        # net.pingAll()
-        old = new
-        time.sleep(3)
+    print "** Entering While Loop"
+    while True:
+        # Moving all hosts
+        for i in range(range_start, len(h)):
+            # Wait 5 secs to next move
+            time.sleep(8)
+            # Select new AP and random port to connect
+            new = ap[randint(0, len(ap) - 1)]
+            port = randint(10, 20)
+
+            used_ports[new].append(port)
+            print '* Moving', h[i], 'from', old[i], 'to', new, 'port', port
+            hintf, sintf = moveHost(h[i], old[i], new, newPort=port)
+
+            print '* ', hintf, 'is now connected to', sintf
+            print '* New network:'
+            printConnections(net.switches)
+            old[i] = new
+
+    # Waiting for CTRL+D to finish
+    CLI(net)
     net.stop()
 
 if __name__ == '__main__':
