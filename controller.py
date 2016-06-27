@@ -236,9 +236,11 @@ class SimpleSwitch13(app_manager.RyuApp):
         #     out_port = ofproto.OFPP_FLOOD
         # pprint(self.net.nodes())
         if dst in self.net.nodes() and src in self.net.nodes():
-            self.log.debug('Host in graph: %s', dst)
+            self.logger.debug('Host in graph: %s', dst)
             try:
                 path = nx.shortest_path(self.net, src, dst)
+                print("------ PATH -------")
+                pprint(path)
                 # TODO: Add to cache paths?
             except Exception as e:
                 self.logger.info(e)
@@ -265,14 +267,23 @@ class SimpleSwitch13(app_manager.RyuApp):
         else:
             # Unknow destination. Nothing to do
             ports_to_send = []
+            # Get all ports on Datapath (Switch)
+            available_ports = [dp_port for dp_port in datapath.ports
+                               if dp_port < 1000000000]
+            # Compute forbidden ports by STP
             mst = nx.minimum_spanning_tree(self.net.to_undirected())
-            edges_st = [(s, d, port)
-                        for s, d, port in self.net.edges(data=True)
-                        if ((s, d) in mst.edges() or
-                            (d, s) in mst.edges())]
-            for s, d, attrib in edges_st:
-                if s == dpid:
-                    ports_to_send.append(attrib['port'])
+            edges_forb = [(s, d, port)
+                          for s, d, port in self.net.edges(data=True)
+                          if ((s, d) not in mst.edges() and
+                              (d, s) not in mst.edges())]
+            # Set of forbidden ports by Spanning Tree
+            forbidden_ports = [attrib['port'] for s, d, attrib in edges_forb
+                               if s == dpid]
+            # List of allowed ports (allowed by STP)
+            for p_aval in available_ports:
+                if p_aval not in forbidden_ports:
+                    ports_to_send.append(p_aval)
+
             # Forward ARP request
             actions = []
             # If there are ports to send (without loop)
