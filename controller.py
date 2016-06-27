@@ -1,3 +1,15 @@
+"""
+    Controlador para suportar mobilidade de hosts utilizando
+    SDN.
+    Controlador desenvolvido utilizando o framework Ryu
+
+    Disciplima: CMP 182 - Redes de Computadores I
+    Professor: Dr. Luciano Paschoal Gaspary
+    Autor: Iulisloi Zacarias
+    E-mail: izacarias at inf dot ufrgs dot br
+    Data: 27/06/2016
+
+"""
 from ryu.base import app_manager
 from ryu.controller import ofp_event
 from ryu.controller.handler import CONFIG_DISPATCHER
