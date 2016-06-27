@@ -156,18 +156,12 @@
 
 % -------------------------------- Slide XX --------------------------------
 \begin{frame}{Modeling the interaction}
-  \begin{beamerboxesrounded}[shadow=true]{How can we model the interaction?}
-    R: Once more, two basic principles
-  \end{beamerboxesrounded}
+
 \end{frame}
 
 % -------------------------------- Slide XX --------------------------------
 \begin{frame}{First Principle: The cell state}
-\begin{itemize}
-  \item The agents in the cells have a state
-  \item The states can represent the opinion, ethnicity
-  \item Typically, the states are modeled as a number (e.g. 1, 2, 3) or a binary value (e.g. ``On'' of ``Off'')
-\end{itemize}
+
 \end{frame}
 
 % -------------------------------- Slide XX --------------------------------
