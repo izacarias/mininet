@@ -26,8 +26,8 @@ class SimpleSwitch13(app_manager.RyuApp):
 
     def __init__(self, *args, **kwargs):
         super(SimpleSwitch13, self).__init__(*args, **kwargs)
-        self.mac_to_port = {}
         self.switches = []
+        self.dst_paths = {}
         # Stores the network Graph
         self.net = nx.DiGraph()
         self.stp = nx.Graph()
@@ -47,39 +47,21 @@ class SimpleSwitch13(app_manager.RyuApp):
                                              actions)]
         # Flow will expire in 5 seconds without traffic (unused)
         mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
-                                match=match, instructions=inst, idle_timeout=5)
+                                match=match, instructions=inst)
         datapath.send_msg(mod)
         # self.logger.debug('[ADD_FLOW] dpid=')
 
-    def delete_flow(self, datapath):
+    def delete_flow(self, datapath, eth_dst):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
-
-        for dst in self.mac_to_port[datapath.id].keys():
-            match = parser.OFPMatch(eth_dst=dst)
-            mod = parser.OFPFlowMod(
-                datapath, command=ofproto.OFPFC_DELETE,
-                out_port=ofproto.OFPP_ANY, out_group=ofproto.OFPG_ANY,
-                priority=1, match=match)
-            datapath.send_msg(mod)
-
-    # def get_network_topology(self, ev):
-    #     self.net.clear()
-    #     # Getting Switches Info (Nodes)
-    #     switch_list = get_switch(self, None)
-    #     for switch in switch_list:
-    #         self.net.add_node(switch.dp.id)
-    #     # Getting Links Info
-    #     links_list = get_link(self, None)
-    #     for link in links_list:
-    #         src_dpid = link.src.dpid
-    #         dst_dpid = link.dst.dpid
-    #         src_port_no = link.src.port_no
-    #         dst_port_no = link.dst.port_no
-    #         # Adding links do Directions Graph
-    #         self.net.add_edge(src_dpid, dst_dpid, {'port': src_port_no})
-    #         self.net.add_edge(dst_dpid, src_dpid, {'port': dst_port_no})
-    #     # self.logger.debug("[NetworkX] -- Topology Complete")
+        # Create Match to delete flow
+        match = parser.OFPMatch(eth_dst=eth_dst)
+        mod = parser.OFPFlowMod(datapath,
+                                command=ofproto.OFPFC_DELETE,
+                                out_port=ofproto.OFPP_ANY,
+                                out_group=ofproto.OFPG_ANY,
+                                priority=1, match=match)
+        datapath.send_msg(mod)
 
     # ------------------ Topology Functions -------------------
     def add_switch(self, ev):
@@ -91,26 +73,6 @@ class SimpleSwitch13(app_manager.RyuApp):
             self.net.add_node('0', n_type='switch', has_host='false')
         else:
             self.net.add_node(dpid, n_type='switch', has_host='false')
-
-    def search_host(self, dpid):
-        hosts = get_host(self, dpid)
-        print '###############################'
-        pprint(hosts)
-
-    def discover_by_arp(self, datapath, msg):
-        # Convert DiGraph to undirected Graph
-        # ud_net = self.net.to_undirected()
-        # stp_graph = nx.minimum_spanning_tree(ud_net)
-        # target_ports = []
-        # excluded_ports = []
-        # for edge in stp_graph.edges():
-        #     opose_sw = None
-        #     if datapath.id == edge[0]:
-        #         opose_sw = edge[1]
-        #     if datapath.id == edge[1]:
-        #         opose_sw = edge[0]
-        #     if opose_sw:
-        pass
 
     # -------------------- Topology events --------------------
     @set_ev_cls(event.EventSwitchEnter, MAIN_DISPATCHER)
@@ -131,19 +93,6 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.net.add_edge(src_dpid, dst_dpid, {'port': src_port_no})
         # DownLink
         self.net.add_edge(dst_dpid, src_dpid, {'port': dst_port_no})
-
-    @set_ev_cls(event.EventHostAdd, MAIN_DISPATCHER)
-    def host_add_handler(self, ev):
-        # host = ev.host
-        # pprint(host.to_dict())
-        # {'ipv4': ['10.0.0.1'],
-        #  'ipv6': [],
-        #  'mac': '00:00:00:00:00:01',
-        #  'port': {'dpid': '0000000000000001',
-        #           'hw_addr': '12:54:79:4c:14:83',
-        #           'name': u's1-eth1',
-        #           'port_no': '00000001'}}
-        pass
 
     # -------------------- OpenFlow events --------------------
     @set_ev_cls(ofp_event.EventOFPSwitchFeatures, CONFIG_DISPATCHER)
@@ -167,20 +116,34 @@ class SimpleSwitch13(app_manager.RyuApp):
     @set_ev_cls(ofp_event.EventOFPPortStatus, MAIN_DISPATCHER)
     def port_status_handler(self, ev):
         msg = ev.msg
+        reason = msg.reason
         datapath = msg.datapath
         ofproto = datapath.ofproto
         ofpport = msg.desc
-        dpid_str = dpid_lib.dpid_to_str(datapath.id)
+        dpid = datapath.id
+        dpid_str = dpid_lib.dpid_to_str(dpid)
         # Detecting a host down (Possibly moving?)
-        if msg.reason == ofproto.OFPPR_MODIFY \
-                and ofpport.state == ofproto.OFPPS_LINK_DOWN:
+        if reason == ofproto.OFPPR_DELETE:
             port_no = ofpport.port_no
-            hw_addr = ofpport.hw_addr
-            # -------------------------------
-            # TODO: Remove from Network GRAPH
-            # TODO: Remove flow from switches (all dpids)
-            # self.logger.debug('Host Down: [dpid=%s] [port=%d] [hw_addr=%s]',
-            #                   dpid_str, port_no, hw_addr)
+            mac = ''
+            try:
+                mac = [dst for src, dst, attrib
+                       in self.net.edges_iter(data=True)
+                       if src == dpid and attrib['port'] == port_no][0]
+            except IndexError:
+                mac = ''
+                self.logger.info('There is not any known host')
+            # Deleting Flows from switches
+            if mac:
+                for switch in self.switches:
+                    # Removing
+                    self.delete_flow(switch, mac)
+                # Deleting host from NetworkX
+                self.net.remove_node(mac)
+                self.logger.debug('Host Down: [dpid=%s] [port=%d] [mac=%s]',
+                                  dpid_str, port_no, mac)
+            # pprint(self.net.nodes())
+            # pprint(self.net.edges(data='port'))
 
     @set_ev_cls(ofp_event.EventOFPPacketIn, MAIN_DISPATCHER)
     def packet_in_handler(self, ev):
@@ -211,12 +174,10 @@ class SimpleSwitch13(app_manager.RyuApp):
         src = eth.src
         dpid = datapath.id
 
-        # self.mac_to_port.setdefault(dpid, {})
         # Logging Packet in event
         self.logger.info("Packet in %s %s %s %s", dpid, src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time.
-        # self.mac_to_port[dpid][src] = in_port
         if src not in self.net:
             # make sure it's a host address
             if "00:00:00" in src:
@@ -227,21 +188,14 @@ class SimpleSwitch13(app_manager.RyuApp):
 
             self.logger.debug('Host added: [%s]->[dpid:%s][port=%d]',
                               src, dpid, in_port)
-            # TODO: Test without return
-            # return
+
         # Try to get the destination from Network Graph
-        # if dst in self.mac_to_port[dpid]:
-        #     out_port = self.mac_to_port[dpid][dst]
-        # else:
-        #     out_port = ofproto.OFPP_FLOOD
-        # pprint(self.net.nodes())
         if dst in self.net.nodes() and src in self.net.nodes():
             self.logger.debug('Host in graph: %s', dst)
             try:
                 path = nx.shortest_path(self.net, src, dst)
-                print("------ PATH -------")
-                pprint(path)
-                # TODO: Add to cache paths?
+                # Store the path to delete it later
+                # self.dst_paths[dst] = path
             except Exception as e:
                 self.logger.info(e)
                 # there isn't a path, nothing to do
