@@ -27,6 +27,8 @@ from mininet.term import makeTerm
 from random import randint
 import time
 
+HOST_NUMBER = 3
+
 
 class MobilitySwitch(OVSSwitch):
     "Switch that can reattach and rename interfaces"
@@ -91,9 +93,8 @@ class FinalTopo(Topo):
     """docstring for ClassName"""
 
     def build(self):
-        # Creating Hosts H1 and H2
-        h1 = self.addHost('h1')
-        h2 = self.addHost('h2')
+        # Creating Hosts h0 to ...
+        hs = [self.addHost('h%d' % i) for i in range(0, HOST_NUMBER)]
         # Creating APs (Switches)
         ap2 = self.addSwitch('ap2', dpid="0000000000001002")
         ap3 = self.addSwitch('ap3', dpid="0000000000001003")
@@ -114,9 +115,6 @@ class FinalTopo(Topo):
         bottomLeftSwitch = self.addSwitch('s9', dpid="0000000000000009")
         bottomMiddleSwitch = self.addSwitch('s6', dpid="0000000000000006")
         bottomRightSwitch = self.addSwitch('s10', dpid="0000000000000010")
-        # Linking Hosts
-        self.addLink(h1, topMiddleSwitch)
-        self.addLink(h2, bottomMiddleSwitch)
         # Linking Switches
         self.addLink(topLeftSwitch, topMiddleSwitch)                 # s7-s1
         self.addLink(topLeftSwitch, topMiddleLeftSwitch)             # s7-s2
@@ -144,6 +142,19 @@ class FinalTopo(Topo):
         self.addLink(ap8, topRightSwitch)
         self.addLink(ap9, bottomLeftSwitch)
         self.addLink(ap10, bottomRightSwitch)
+        # Linking Hosts
+        sws = [topMiddleSwitch,
+               topLeftSwitch,
+               topRightSwitch,
+               topMiddleLeftSwitch,
+               topMiddleRightSwitch,
+               bottomMiddleLeftSwitch,
+               bottomMiddleRightSwitch,
+               bottomLeftSwitch,
+               bottomMiddleSwitch,
+               bottomRightSwitch]
+        for h in hs:
+            self.addLink(h, sws[randint(0, len(sws) - 1)])
 
 
 def printConnections(switches):
@@ -171,7 +182,7 @@ def vlcCommand(type='', host=None, curr_time_str=None):
     baseCommand = 'vlc-wrapper '
     if (type == 'server'):
         # media_file = '/home/mininet/720x480_5mb.mp4'
-        media_file = '/home/mininet/320x180_65.mp4'
+        media_file = '/home/mininet/movie.mp4'
         # baseCommand += '-vvv '
         baseCommand += media_file + ' '
         baseCommand += '-I dummy '
@@ -207,7 +218,9 @@ def mobilityTest():
     # net = Mininet(topo=LinearTopo(3), autoSetMacs=True,
     #              switch=MobilitySwitch, controller=c1)
     # Using Custom Topology (FinalTopo)
+    print "* Instanciating FinalTopo"
     topo = FinalTopo()
+    print '* Preparing network'
     # Creating the Mininet Object
     net = Mininet(topo=topo, autoSetMacs=True,
                   switch=MobilitySwitch, controller=c1)
@@ -217,8 +230,6 @@ def mobilityTest():
     print '* Waiting for the controller...'
     net.waitConnected(delay=1)
     print '... ok All switches connected.'
-    print '* Waiting for the Spanning Tree configuration.'
-    time.sleep(6)
     print '* Testing network'
     net.pingAll()
     print '* Identifying switch interface for h1'
@@ -230,21 +241,18 @@ def mobilityTest():
     makeTerm(h2, title='Client', cmd=vlcCommand('client', h2, curr_time_str))
     print '* Starting "handovers"'
     # Loop forever to test the controller (Stop with Ctrl+C)
-    for s in 2, 4, 7, 8, 9:
-        new = net['ap%d' % s]
+    for s in 2, 4, 7, 8, 9, 1:
+        new = net['s%d' % s]
         port = randint(10, 20)
         print '* Moving', h1, 'from', old, 'to', new, 'port', port
         hintf, sintf = moveHost(h1, old, new, newPort=port)
         print '* ', hintf, 'is now connected to', sintf
-        # print '* Clearing out old flows'
-        # for sw in net.switches:
-        #     sw.dpctl('del-flows')
         print '* New network:'
-        printConnections(net.switches)
-        print '* Testing connectivity:'
+        # printConnections(net.switches)
+        # print '* Testing connectivity:'
         # net.pingAll()
-        net.iperf((h1, h2))
         old = new
+        time.sleep(3)
     net.stop()
 
 if __name__ == '__main__':
