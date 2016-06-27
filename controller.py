@@ -203,7 +203,6 @@ class SimpleSwitch13(app_manager.RyuApp):
 
         # Try to get the destination from Network Graph
         if dst in self.net.nodes() and src in self.net.nodes():
-            self.logger.debug('Host in graph: %s', dst)
             try:
                 path = nx.shortest_path(self.net, src, dst)
                 # Store the path to delete it later
