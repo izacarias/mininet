@@ -9,13 +9,14 @@
 \setbeamertemplate{blocks}[rounded][shadow=true]
 \usepackage[utf8]{inputenc}   % pacote para acentuao
 \usepackage{amsmath}
-
 %% Listagens de código
 \usepackage{listings}
 \usepackage{color}
+% \usepackage{caption}
 
 \setbeamertemplate{footline}[frame number]
 \setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{bibliography item}[text]
 
 \definecolor{codegreen}{rgb}{0,0.6,0}
 \definecolor{codegray}{rgb}{0.5,0.5,0.5}
@@ -42,6 +43,8 @@
 }
 \lstset{style=mystyle}
 
+\setbeamerfont{caption}{size=\tiny}
+
 \beamertemplateballitem
 
 \begin{document}
@@ -50,7 +53,7 @@
 
 
 \author
-{Iulisloi Zacarias}
+{Iulisloi Zacarias \\ Janaína Schwarzrock}
 
 \institute
 {
@@ -58,9 +61,10 @@
   Universidade Federal do Rio Grande do Sul (UFRGS)
 }
 
-\date[CMP166]
+\date[CMP182]
 {CMP182 – Redes de Computadores I, 2016/I \\
-\scriptsize Prof. Dr. Luciano Paschoal Gaspary}
+\scriptsize Prof. Dr. Edison Pignaton de Freitas \\
+            Prof. Dr. Luciano Paschoal Gaspary}
 
 % UFRGS Logo
 \logo{\includegraphics[scale=0.3]{images/inf}}
@@ -85,8 +89,8 @@
 
 \subsection{Scenario}
 
-% -------------------------------- Slide 01 --------------------------------
-\begin{frame}{Scenario Caracterization}
+% ----------------------------------------------------------------
+\begin{frame}{Scenario Characterization}
 \begin{itemize}
   \item Proposed mobility scenario
   \item A stream video server
@@ -95,20 +99,36 @@
 \end{itemize}
 \end{frame}
 
-% -------------------------------- Slide 02 --------------------------------
-\begin{frame}{Scenario Diagram}
+% ----------------------------------------------------------------
+\begin{frame}{Scenario Diagram (Zone)}
 	\begin{figure}
-	\includegraphics[scale=0.3]{images/scenario.pdf}
-	\caption{\scriptsize Overview of proposed scenario}
+	\includegraphics[scale=0.2]{images/forcas_armadas_2.pdf}
+    \tiny
+	\caption{Dashed and dotted lines represent communication links among Unmanned Aerial Vehicles and Ground Vehicles}
 	\end{figure}
 \end{frame}
 
-% -------------------------------- Slide 03 --------------------------------
-\begin{frame}{Challenges in Scenario}
+% ----------------------------------------------------------------
+\begin{frame}{Scenario Diagram (Axis)}
+    \begin{figure}
+        \includegraphics[scale=0.2]{images/forcas_armadas_1.pdf}
+        \tiny
+        \caption{Dashed and dotted lines represent communication links among Unmanned Aerial Vehicles and Ground Vehicles}
+    \end{figure}
+\end{frame}
+
+% ----------------------------------------------------------------
+\begin{frame}{Links and Problem Characterization}
 \begin{itemize}
-  \item Link loop
-  \item ARP messages propagation
+  \item Links
+      \begin{itemize}
+          \item Bandwidth (Max. throughput)
+          \item Packet loss expected (amount in \%)
+        \end{itemize}
+  \item Video and Photo format (size, resolution, format)
   \item Mobility of nodes (dynamic behaviour) 
+  \item Video client location (The video needs to be accessible from all
+  vehicles?)
 \end{itemize}
 \end{frame}
 
@@ -116,37 +136,76 @@
 \section{Implementation}
 
 \subsection{Events Flow Diagram}
-% -------------------------------- Slide 04 --------------------------------
+
+% ----------------------------------------------------------------
 \begin{frame}{Flow Diagram of Topology Discover}
-	\begin{figure}
-	\includegraphics[scale=0.45]{images/algorithm0.pdf}
-	\caption{\scriptsize Topology discovering process}
-	\end{figure}
+  \begin{columns}
+    \begin{column}{0.5\textwidth}
+      \begin{figure}
+	    \includegraphics[scale=0.45]{images/algorithm0.pdf}
+	    \caption{Topology discovering process}
+	  \end{figure}
+    \end{column}
+    \begin{column}{0.5\textwidth}
+      \begin{itemize}
+      \item Wait for Ryu topology start-up
+      \item Use of LLDP Messages for discovering
+      \item Create a network representation using NetworkX
+      \end{itemize}
+    \end{column}
+  \end{columns}
 \end{frame}
 
-% -------------------------------- Slide 05 --------------------------------
+% ----------------------------------------------------------------
 \begin{frame}{Flow Diagram of Packet In}
-	\begin{figure}
-	\includegraphics[scale=0.28]{images/algorithm1.pdf}
-	\caption{\scriptsize Packet-in process (for each datapath)}
-	\end{figure}
+  \begin{columns}
+    \begin{column}{0.5\textwidth}
+      \begin{figure}
+	  \includegraphics[scale=0.27]{images/algorithm1.pdf}
+	  \caption{Overview of Packet In event}
+	  \end{figure}
+    \end{column}    
+    \begin{column}{0.5\textwidth}
+      \begin{itemize}
+      \item Discover new hosts
+      \item Find shortest path (known destination host)
+      \item Discover destination using ARP messages
+      \item Broadcast of ARP in ``controlled'' network path
+      \item Discover of destination on ARP Response
+      \end{itemize}
+    \end{column}
+  \end{columns}
 \end{frame}
 
-% -------------------------------- Slide 06 --------------------------------
+% ----------------------------------------------------------------
 \begin{frame}{Flow Diagram of Port Status Change}
-	\begin{figure}
-	\includegraphics[scale=0.45]{images/algorithm2.pdf}
-	\caption{\scriptsize Port status change process}
-	\end{figure}
+  \begin{columns}
+    % Column 1    
+    \begin{column}{0.5\linewidth}
+      \begin{figure}
+	    \includegraphics[scale=0.45]{images/algorithm2.pdf}
+	    \caption{Topology discovering process}
+	  \end{figure}
+    \end{column}
+    % Column 2  
+    \begin{column}{0.5\linewidth}
+      \begin{itemize}
+      \item OpenFlow sends an ``Port disconnected'' message
+      \item Locate hardware address traversing the NetworkX graph
+      \item Delete flows from switches in old path
+      \item Delete the host disconnected from graph (NetworkX)
+      \end{itemize}
+    \end{column}    
+  \end{columns}
 \end{frame}
 
 \subsection{Tools and libraries}
-% -------------------------------- Slide 07 --------------------------------
+% ----------------------------------------------------------------
 \begin{frame}{Tools and Libraries Employed}
 \begin{itemize}
   \item ``Mininet'' used to simulate networks, hosts and topology
   \item Controller developed using Ryu Framework (v: 4.3)
-  \item OpenFlow (v: 1.3.x) and Open vSwitch
+  \item OpenFlow (v: 1.3.x) and Open vSwitch(**)
   \item Video playback and metrics using VLC Media Player
   \item NetworkX library for graph manipulation
 \end{itemize}
@@ -154,118 +213,58 @@
 
 \section{Results}
 
-% -------------------------------- Slide XX --------------------------------
-\begin{frame}{Modeling the interaction}
-  \begin{beamerboxesrounded}[shadow=true]{How can we model the interaction?}
-    R: Once more, two basic principles
-  \end{beamerboxesrounded}
+
+\subsection{ARP Broadcast Messages}
+% ----------------------------------------------------------------
+\begin{frame}{ARP Messages forwarded}
+  \begin{figure}
+    \includegraphics[scale=0.45]{images/graph_bcast.pdf}
+    \caption{Amount of forwarded ARP Broadcast*}
+  \end{figure}
 \end{frame}
 
-% -------------------------------- Slide XX --------------------------------
-\begin{frame}{First Principle: The cell state}
-\begin{itemize}
-  \item The agents in the cells have a state
-  \item The states can represent the opinion, ethnicity
-  \item Typically, the states are modeled as a number (e.g. 1, 2, 3) or a binary value (e.g. ``On'' of ``Off'')
-\end{itemize}
+\subsection{OpenFlow Messages}
+
+% ----------------------------------------------------------------
+\begin{frame}{OpenFlow Rules}
+  \begin{figure}
+    \includegraphics[scale=0.32]{images/graph_of.pdf}
+    \caption{OpenFlow reprogramming rules}
+  \end{figure}
 \end{frame}
 
-% -------------------------------- Slide XX --------------------------------
-\begin{frame}{Second Principle: The rules}
-
-\end{frame}
-
-\subsection{Interaction}
-% -------------------------------- Slide XX --------------------------------
-\begin{frame}{How state changes are modeled?}
-
-\end{frame}
-
-% -------------------------------- Slide XX --------------------------------
-\begin{frame}{State change dynamics}
-\begin{itemize}
-  \item Influence dynamics
-  \begin{itemize}
-    \item Agents do not change their location but change their state
-  \end{itemize}
-  \item Migration dynamics
-  \begin{itemize}
-  \item Agent may move to another place in the world, depending on the current state of the neighborhood
-  \end{itemize}
-\end{itemize}
-\end{frame}
-
-
-%\section{Why study cellular automaton}
-%% -------------------------------- Slide XX --------------------------------
-%\begin{frame}{How many automaton rules are there?}
-%\begin{itemize}
-%  \item There are many rules (really?!)
-%  \begin{itemize}
-%    \item How many rules we can create with a one-dimension world, two states, and a neighborhood or three cells
-%    \item Number of Rules = ${S}^{N} = {2}^{3} = 8$
-%    \item There are two possible ending for each rule ($S = 2$), thus:
-%      \begin{equation*}
-%       {S^S}^{N} = {2^2}^{3} = 256 ~rules
-%      \end{equation*}
-%    \item If you spent 1 minute examining each rule, you will work for 4:15h
-%    % \item Considering a neighborhood of five cells: Rules = 2^2^5 = 4,294,967,296
-%  \end{itemize}
-%\end{itemize}
-%\end{frame}
-
-%\section{Cellular automaton and Chaos}
-%\subsection{Cellular automaton behavior}
-%% -------------------------------- Slide XX --------------------------------
-%\begin{frame}{From chaos emerge organization}
-%\begin{itemize}
-%  \item Random start states can produce similar patterns
-%\end{itemize}
-%
-%  \begin{figure}[ht]
-%	  \begin{minipage}[b]{0.45\linewidth}
-%	    \centering
-%	    \includegraphics[width=\textwidth]{images/single_start.png}
-%		  \caption{\scriptsize Single point start state}
-%    \end{minipage}
-%    \hspace{0.5cm}
-%    \begin{minipage}[b]{0.45\linewidth}
-%	    \centering
-%	    \includegraphics[width=\textwidth]{images/rand_start.png}
-%	    \caption{\scriptsize Random start state}
-%    \end{minipage}
-%  \end{figure}
-%\end{frame}
 
 \section{Conclusion}
 
-% -------------------------------- Slide XX --------------------------------
+% ----------------------------------------------------------------
 \begin{frame}{Conclusion}
 \begin{itemize}
-  \item Mobility simulation using Mininet offer some challanges
+  \item Mobility simulation using Mininet offer some challenges
   \item Open vSwitch is not fully compatible with OpenFlow 1.3
   \item Traditional Spanning Tree Protocol (IEEE 802.1D) is not 
         suitable for high mobility scenario
 \end{itemize}
 \end{frame}
 
+% ----------------------------------------------------------------
 \section{References}
 \begin{frame}{References}
 \begin{thebibliography}{Schroeder, 1991}
-\bibitem[M. R. Schroeder, 1991]{Schroeder1991}
+\footnotesize
+\bibitem{Schroeder1991}
   Bob Lantz, Brandon Heller, and Nick McKeown.
   \newblock Network in a Laptop: Rapid Prototyping for
             Software-Defined Networks.
   \newblock{\em 9th ACM Workshop on Hot Topics in Networks}, Oct. 20-21
   \newblock Monterey, CA.
   
-\bibitem[Peak, 1994]{Peak1994}
+\bibitem{Peak1994}
   Aric A. Hagberg, Daniel A. Schult and Pieter J. Swart.
   \newblock Exploring network structure, dynamics, and function using NetworkX
   \newblock{\em in Proceedings of the 7th Python in Science Conference}, p. 11--15, Aug. 2008.
   \newblock Pasadena, CA
   
-\bibitem[Peak, 1994]{Peak1994}
+\bibitem{Peak1994}
   Nippon Telegraph and Telephone Corporation
   \newblock Ryu SDN Framework
   \newblock https://osrg.github.io/ryu/ 
