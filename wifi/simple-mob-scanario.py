@@ -16,10 +16,18 @@ Handorver example (based on proposed scenario)
 OF_CONTROLLER_IP = '192.168.56.1'
 OF_CONTROLLER_PORT = 6633
 
+# Nodes placement
+POS_SCALE = 20
+POS_CENTER = 50
+
+# Number of UAVs
+CONF_UAV_NUMBER = 9
+
 
 class OVSKernelSwitch13(OVSKernelSwitch):
-    """docstring for OVSKernelSwitch13"""
-
+    """
+    Class for use of OpenFlow 1.3 (Inheritance)
+    """
     def __init__(self, *args, **kwargs):
         OVSKernelSwitch.__init__(self, protocols='OpenFlow13', *args, **kwargs)
 
@@ -28,7 +36,13 @@ def topology():
     """
       Creates the network elements in Mininet
     """
-    print "*** Creating a remote controller"
+
+    # List o UAVs (stations)
+    uav_list = []
+    # List of Switches and APs (Guaranis)
+    sw_list = []
+    ap_list = []
+    print "*** Creates a remote controller"
     c1 = RemoteController('c1', ip=OF_CONTROLLER_IP, port=OF_CONTROLLER_PORT)
 
     print "*** Creating a network."
@@ -36,21 +50,24 @@ def topology():
                   link=TCLink,
                   switch=OVSKernelSwitch13)
 
-    print "*** Creating mobile nodes (stations)"
-    sta1 = net.addStation('sta1', mac='00:00:00:00:00:02', ip='10.0.0.2/8')
-    sta2 = net.addStation('sta2', mac='00:00:00:00:00:03', ip='10.0.0.3/8')
+    # Creating N UAV (configured by CONF_UAV_NUMBER)
+    print '*** Creating UAVs (Stations)'
+    for i in range(CONF_UAV_NUMBER):
+        print '*** Creating UAV {0:2d} of {1:2d}...'.format(i, CONF_UAV_NUMBER)
+        sta_mac = '00:00:00:00:00:{0:02d}'.format(i)
+        sta_name = 'sta{0:d}'.format(i)
+        sta_ip = '10.0.0.{0:d}'.format(i)
+        uav_list.append(net.addStation(sta_name, mac=sta_mac, ip=sta_ip))
 
-    print "*** Creating static switches"
-    topMiddleSwitch = net.addSwitch('s1', dpid="0000000000000001")
-    topLeftSwitch = net.addSwitch('s7', dpid="0000000000000007")
-    topRightSwitch = net.addSwitch('s8', dpid="0000000000000008")
-    topMiddleLeftSwitch = net.addSwitch('s2', dpid="0000000000000002")
-    topMiddleRightSwitch = net.addSwitch('s3', dpid="0000000000000003")
-    bottomMiddleLeftSwitch = net.addSwitch('s4', dpid="0000000000000004")
-    bottomMiddleRightSwitch = net.addSwitch('s5', dpid="0000000000000005")
-    bottomLeftSwitch = net.addSwitch('s9', dpid="0000000000000009")
-    bottomMiddleSwitch = net.addSwitch('s6', dpid="0000000000000006")
-    bottomRightSwitch = net.addSwitch('s10', dpid="0000000000000010")
+    print "*** Creating static Guaranis (Switch + AP)"
+    for i in xrange(1, 10):
+        print '*** Creating Guarani (Switch + AP) {0:d} of {1:d}'.format(i, 9)
+        sw_name = 's{0:d}'.format(i)
+        ap_name = 'ap{0:d}'.format(i)
+        sw_dpid = '000000000000000{0:d}'.format(i)
+        ap_dpid = '000000000000100{0:d}'.format(i)
+        sw_list.append(net.addSwitch(sw_name, dpid=sw_dpid))
+        ap_list.append(net.addBaseStation(ap_name, dpid=ap_dpid, ssid='ssid_ex', ))
 
     print "*** Linking static switches"
     net.addLink(topLeftSwitch, topMiddleSwitch)                 # s7-s1
@@ -82,7 +99,7 @@ def topology():
     ap5 = net.addBaseStation('ap5', dpid='0000000000001005', ssid='ssid_ap',
                              mode='g', channel='1', position='62,90,0')
     ap7 = net.addBaseStation('ap7', dpid='0000000000001007', ssid='ssid_ap',
-                             mode='g', channel='1', position='12,10,0')
+                             mode='g', channel='1', position='0,0,0')
     ap8 = net.addBaseStation('ap8', dpid='0000000000001008', ssid='ssid_ap',
                              mode='g', channel='11', position='12,90,0')
     ap9 = net.addBaseStation('ap9', dpid='0000000000001009', ssid='ssid_ap',
