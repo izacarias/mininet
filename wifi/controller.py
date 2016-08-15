@@ -61,7 +61,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         mod = parser.OFPFlowMod(datapath=datapath, priority=priority,
                                 match=match, instructions=inst)
         datapath.send_msg(mod)
-        # self.logger.debug('[ADD_FLOW] dpid=')
+        self.logger.debug('Adding Flow: dpid=[%s]', datapath.id)
 
     def delete_flow(self, datapath, eth_dst):
         ofproto = datapath.ofproto
@@ -74,6 +74,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                                 out_group=ofproto.OFPG_ANY,
                                 priority=1, match=match)
         datapath.send_msg(mod)
+        self.logger.debug('Deleting Flow: dpid=[%s]', datapath.id)
 
     # ------------------ Topology Functions -------------------
     def add_switch(self, ev):
@@ -82,9 +83,10 @@ class SimpleSwitch13(app_manager.RyuApp):
         dpid = switch.dp.id
         # Adding switch node
         if dpid == 0:
-            self.net.add_node('0', n_type='switch', has_host='false')
-        else:
-            self.net.add_node(dpid, n_type='switch', has_host='false')
+            dpid = '0'
+
+        self.net.add_node(dpid, n_type='switch', has_host='false')
+        self.logger.debug('Adding switch to NET: [dpid:%s]', dpid)
 
     # -------------------- Topology events --------------------
     @set_ev_cls(event.EventSwitchEnter, MAIN_DISPATCHER)
@@ -198,8 +200,8 @@ class SimpleSwitch13(app_manager.RyuApp):
                 self.net.add_edge(dpid, src, {'port': in_port})
                 self.net.node[dpid]['has_host'] = 'true'
 
-            self.logger.debug('Host added: [%s]->[dpid:%s][port=%d]',
-                              src, dpid, in_port)
+                self.logger.debug('Host added: [%s]->[dpid:%s][port=%d]',
+                                  src, dpid, in_port)
 
         # Try to get the destination from Network Graph
         if dst in self.net.nodes() and src in self.net.nodes():
