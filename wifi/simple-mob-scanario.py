@@ -72,22 +72,22 @@ def topology():
 
     print "*** Creating access points"
     # Creating Access Points
-    ap2 = net.addBaseStation('ap2', dpid='0000000000001002', ssid='ssid_ap2',
+    ap2 = net.addBaseStation('ap2', dpid='0000000000001002', ssid='ssid_ap',
                              mode='g', channel='1', position='37,10,0')
-    ap3 = net.addBaseStation('ap3', dpid='0000000000001003', ssid='ssid_ap3',
+    ap3 = net.addBaseStation('ap3', dpid='0000000000001003', ssid='ssid_ap',
                              mode='g', channel='6', position='37,90,0')
-    ap4 = net.addBaseStation('ap4', dpid='0000000000001004', ssid='ssid_ap4',
+    ap4 = net.addBaseStation('ap4', dpid='0000000000001004', ssid='ssid_ap',
                              mode='g', channel='11', position='62,10,0')
-    ap5 = net.addBaseStation('ap5', dpid='0000000000001005', ssid='ssid_ap5',
+    ap5 = net.addBaseStation('ap5', dpid='0000000000001005', ssid='ssid_ap',
                              mode='g', channel='1', position='62,90,0')
-    ap7 = net.addBaseStation('ap7', dpid='0000000000001007', ssid='ssid_ap7',
+    ap7 = net.addBaseStation('ap7', dpid='0000000000001007', ssid='ssid_ap',
                              mode='g', channel='1', position='12,10,0')
-    ap8 = net.addBaseStation('ap8', dpid='0000000000001008', ssid='ssid_ap8',
+    ap8 = net.addBaseStation('ap8', dpid='0000000000001008', ssid='ssid_ap',
                              mode='g', channel='11', position='12,90,0')
-    ap9 = net.addBaseStation('ap9', dpid='0000000000001009', ssid='ssid_ap9',
+    ap9 = net.addBaseStation('ap9', dpid='0000000000001009', ssid='ssid_ap',
                              mode='g', channel='6', position='87,10,0')
     ap10 = net.addBaseStation('ap10', dpid='0000000000001010',
-                              ssid='ssid_ap10', mode='g', channel='11',
+                              ssid='ssid_ap', mode='g', channel='11',
                               position='87,90,0')
 
     print "*** Linking access points to switches"
@@ -107,6 +107,18 @@ def topology():
     print "*** Starting network"
     net.build()
     c1.start()
+    # Starting Switches
+    topMiddleSwitch.start([c1])
+    topLeftSwitch.start([c1])
+    topRightSwitch.start([c1])
+    topMiddleLeftSwitch.start([c1])
+    topMiddleRightSwitch.start([c1])
+    bottomMiddleLeftSwitch.start([c1])
+    bottomMiddleRightSwitch.start([c1])
+    bottomLeftSwitch.start([c1])
+    bottomMiddleSwitch.start([c1])
+    bottomRightSwitch.start([c1])
+    # Starting APs
     ap2.start([c1])
     ap3.start([c1])
     ap4.start([c1])
