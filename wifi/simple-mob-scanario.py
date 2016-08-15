@@ -4,6 +4,7 @@ from mininet.net import Mininet
 from mininet.node import RemoteController, OVSKernelSwitch
 from mininet.link import TCLink
 from mininet.cli import CLI
+from mininet.term import makeTerm
 from mininet.log import setLogLevel
 
 
@@ -127,6 +128,10 @@ def topology():
     ap8.start([c1])
     ap9.start([c1])
     ap10.start([c1])
+
+    # Running IPERF in stations
+    makeTerm(sta1, title='Server', cmd='iperf -s')
+    makeTerm(sta2, title='Client', cmd='iperf -c 10.0.0.2 -t 45')
 
     """uncomment to plot graph"""
     net.plotGraph(max_x=100, max_y=100)
