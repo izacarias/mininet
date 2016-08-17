@@ -4,7 +4,7 @@ from mininet.net import Mininet
 from mininet.node import RemoteController, OVSKernelSwitch
 from mininet.link import TCLink
 from mininet.cli import CLI
-from mininet.term import makeTerm
+# from mininet.term import makeTerm
 from mininet.log import setLogLevel
 
 
@@ -27,9 +27,9 @@ POS_GUARANI_DISTANCE = POS_SCALE / 3
 POS_GUARANI_X = 100
 POS_GUARANI_Y_START = POS_SCALE / 2
 
-POS_UAV_FROM_GUARANI = POS_SCALE
-POS_UAV_DISTANCE = 4.0 / (CONF_UAV_NUMBER - 1) * POS_SCALE
-POS_
+POS_UAV_FROM_GUARANI = POS_SCALE / 2
+POS_UAV_DISTANCE = int(4.0 / (CONF_UAV_NUMBER - 1) * POS_SCALE)
+POS_UAV_MOTION = 5
 
 
 class OVSKernelSwitch13(OVSKernelSwitch):
@@ -80,7 +80,14 @@ def topology():
         sta_mac = '00:00:00:00:00:{0:02d}'.format(i + 1)
         sta_name = 'sta{0:d}'.format(i + 1)
         sta_ip = '10.0.0.{0:d}/8'.format(i + 1)
-        uav_list.append(net.addStation(sta_name, mac=sta_mac, ip=sta_ip))
+        # node position
+        uav_min_x = int(round(uav_get_xbase(i + 1) - POS_UAV_MOTION))
+        uav_max_x = int(round(uav_get_xbase(i + 1) + POS_UAV_MOTION))
+        uav_min_y = int(round(uav_get_ybase() - POS_UAV_MOTION))
+        uav_max_y = int(round(uav_get_ybase() + POS_UAV_MOTION))
+        uav_list.append(net.addStation(sta_name, mac=sta_mac, ip=sta_ip,
+                                       min_x=uav_min_x, max_x=uav_max_x,
+                                       min_y=uav_min_y, max_y=uav_max_y))
 
     print "*** Creating static Guaranis (Switch + AP)"
     for i in xrange(1, CONF_GUARANI_NUMBER + 1):
@@ -126,15 +133,9 @@ def topology():
     """uncomment to plot graph"""
     net.plotGraph(max_x=200, max_y=200)
 
-    # net.startMobility(startTime=0)
-    # # Sta1 mobility
-    # net.mobility('sta1', 'start', time=1, position='10,22,0')
-    # net.mobility('sta1', 'stop', time=40, position='90,22,0')
-    # # sta2 mobility
-    # net.mobility('sta2', 'start', time=2, position='10,82,0')
-    # net.mobility('sta2', 'stop', time=40, position='90,82,0')
-    # # Stop all mobility
-    # net.stopMobility(stopTime=40)
+    # Starting Mobility
+    # net.seed(20)
+    net.startMobility(startTime=0, model='GaussMarkov', min_v=0.5, max_v=0.8)
 
     print "*** Running CLI"
     CLI(net)
