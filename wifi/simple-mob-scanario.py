@@ -22,6 +22,7 @@ CONF_GUARANI_NUMBER = 9
 
 # Nodes placement
 POS_SCALE = 35
+
 # Distance between elements (UAV, vehicles...)
 POS_GUARANI_DISTANCE = POS_SCALE / 3
 POS_GUARANI_X = 100
@@ -89,6 +90,11 @@ def topology():
                                        min_x=uav_min_x, max_x=uav_max_x,
                                        min_y=uav_min_y, max_y=uav_max_y))
 
+    # print '*** Creating UAVs (Stations)'
+    # for uav in uav_list:
+    #     print '    - Adding UAV {0:s} to WifiDirect'.format(uav.name)
+    #     net.wifiDirect(uav)
+
     print "*** Creating static Guaranis (Switch + AP)"
     for i in xrange(1, CONF_GUARANI_NUMBER + 1):
         print '    - Creating Guarani (Switch + AP) {0:d} of {1:d}' \
@@ -97,7 +103,7 @@ def topology():
         ap_name = 'ap{0:d}'.format(i)
         sw_dpid = '000000000000000{0:d}'.format(i)
         ap_dpid = '000000000000100{0:d}'.format(i)
-        ap_channel = i % 3
+        ap_channel = [1, 6, 11][i % 3]
         ap_position = '{0:d},{1:d},0'.format(
             POS_GUARANI_X,
             POS_GUARANI_Y_START + ((i - 1) * POS_GUARANI_DISTANCE))
@@ -110,8 +116,9 @@ def topology():
         net.addLink(sw_list[-1], ap_list[-1])
 
     print "*** Creating links between Guaranis"
-    for i in xrange(1, CONF_GUARANI_NUMBER - 1):
-        print "    - sw{0:d} <=======> sw{1:d}".format(i, i + 1)
+    for i in xrange(0, CONF_GUARANI_NUMBER - 1):
+        print "    - sw{0:s} <=======> sw{1:s}".format(sw_list[i].name,
+                                                       sw_list[i + 1].name)
         net.addLink(sw_list[i], sw_list[i + 1])
 
     print "*** Starting network"
@@ -125,6 +132,18 @@ def topology():
     for ap in ap_list:
         print '    - Starting {0:s}'.format(ap.name)
         ap.start([c1])
+
+    # Adding a host to AP1 for tests
+    h1 = net.addHost('h1')
+    h2 = net.addHost('h2')
+    # Creating links
+    net.addLink(h1, sw_list[0])
+    net.addLink(h2, sw_list[-1])
+
+    h1.setIP('10.0.0.81', '8')
+    h1.setMAC('00:00:00:88:00:01')
+    h2.setIP('10.0.0.82', '8')
+    h2.setMAC('00:00:00:88:00:02')
 
     # Running IPERF in stations
     # makeTerm(sta1, title='Server', cmd='iperf -s')
