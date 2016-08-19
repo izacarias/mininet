@@ -73,7 +73,7 @@ def topology():
                   link=TCLink,
                   switch=OVSKernelSwitch13)
 
-    # Creating N UAV (configured by CONF_UAV_NUMBER)
+    # # Creating N UAV (configured by CONF_UAV_NUMBER)
     print '*** Creating UAVs (Stations)'
     for i in range(CONF_UAV_NUMBER):
         print '    - Creating UAV {0:2d} of {1:2d}...'.format(i + 1,
@@ -81,6 +81,7 @@ def topology():
         sta_mac = '00:00:00:00:00:{0:02d}'.format(i + 1)
         sta_name = 'sta{0:d}'.format(i + 1)
         sta_ip = '10.0.0.{0:d}/8'.format(i + 1)
+        sta_power = 70
         # node position
         uav_min_x = int(round(uav_get_xbase(i + 1) - POS_UAV_MOTION))
         uav_max_x = int(round(uav_get_xbase(i + 1) + POS_UAV_MOTION))
@@ -88,7 +89,8 @@ def topology():
         uav_max_y = int(round(uav_get_ybase() + POS_UAV_MOTION))
         uav_list.append(net.addStation(sta_name, mac=sta_mac, ip=sta_ip,
                                        min_x=uav_min_x, max_x=uav_max_x,
-                                       min_y=uav_min_y, max_y=uav_max_y))
+                                       min_y=uav_min_y, max_y=uav_max_y,
+                                       txpower=sta_power))
 
     # print '*** Creating UAVs (Stations)'
     # for uav in uav_list:
@@ -121,6 +123,11 @@ def topology():
                                                        sw_list[i + 1].name)
         net.addLink(sw_list[i], sw_list[i + 1])
 
+    h1 = net.addHost('h1', mac='00:00:00:09:00:01', ip='10.0.0.91/8')
+    h2 = net.addHost('h2', mac='00:00:00:09:00:02', ip='10.0.0.92/8')
+    net.addLink(h1, sw_list[0])
+    net.addLink(h2, sw_list[8])
+
     print "*** Starting network"
     net.build()
     c1.start()
@@ -132,22 +139,6 @@ def topology():
     for ap in ap_list:
         print '    - Starting {0:s}'.format(ap.name)
         ap.start([c1])
-
-    # Adding a host to AP1 for tests
-    h1 = net.addHost('h1')
-    h2 = net.addHost('h2')
-    # Creating links
-    net.addLink(h1, sw_list[0])
-    net.addLink(h2, sw_list[-1])
-
-    h1.setIP('10.0.0.81', '8')
-    h1.setMAC('00:00:00:88:00:01')
-    h2.setIP('10.0.0.82', '8')
-    h2.setMAC('00:00:00:88:00:02')
-
-    # Running IPERF in stations
-    # makeTerm(sta1, title='Server', cmd='iperf -s')
-    # makeTerm(sta2, title='Client', cmd='iperf -c 10.0.0.2 -t 45')
 
     """uncomment to plot graph"""
     net.plotGraph(max_x=200, max_y=200)
