@@ -81,7 +81,7 @@ def topology():
         sta_mac = '00:00:00:00:00:{0:02d}'.format(i + 1)
         sta_name = 'sta{0:d}'.format(i + 1)
         sta_ip = '10.0.0.{0:d}/8'.format(i + 1)
-        sta_power = 70
+        sta_power = 75
         # node position
         uav_min_x = int(round(uav_get_xbase(i + 1) - POS_UAV_MOTION))
         uav_max_x = int(round(uav_get_xbase(i + 1) + POS_UAV_MOTION))
@@ -90,7 +90,7 @@ def topology():
         uav_list.append(net.addStation(sta_name, mac=sta_mac, ip=sta_ip,
                                        min_x=uav_min_x, max_x=uav_max_x,
                                        min_y=uav_min_y, max_y=uav_max_y,
-                                       txpower=sta_power))
+                                       txpower=sta_power, wlans=2))
 
     # print '*** Creating UAVs (Stations)'
     # for uav in uav_list:
@@ -105,13 +105,14 @@ def topology():
         ap_name = 'ap{0:d}'.format(i)
         sw_dpid = '000000000000000{0:d}'.format(i)
         ap_dpid = '000000000000100{0:d}'.format(i)
+        ap_ssid = 'ssid_ap{0:d}'.format(i)
         ap_channel = [1, 6, 11][i % 3]
         ap_position = '{0:d},{1:d},0'.format(
             POS_GUARANI_X,
             POS_GUARANI_Y_START + ((i - 1) * POS_GUARANI_DISTANCE))
         sw_list.append(net.addSwitch(sw_name, dpid=sw_dpid))
         ap_list.append(net.addBaseStation(ap_name, dpid=ap_dpid,
-                                          ssid='ssid_ex', mode='g',
+                                          ssid=ap_ssid, mode='g',
                                           channel=ap_channel,
                                           position=ap_position))
         # Link last created AP with last created Switch
@@ -127,6 +128,11 @@ def topology():
     h2 = net.addHost('h2', mac='00:00:00:09:00:02', ip='10.0.0.92/8')
     net.addLink(h1, sw_list[0])
     net.addLink(h2, sw_list[8])
+
+    print '*** Adding Mesh network among Stations'
+    for uav in uav_list:
+        print '    - Adding UAV {0:s} to mesh network'.format(uav.name)
+        net.addMesh(uav, ssid='meshNet')
 
     print "*** Starting network"
     net.build()
