@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<title>HTML5 Player with Stats</title>
+</head>
+<body>
+
+	<video id="myVideo" width="640" height="480" autoplay>
+	    <source src="http://localhost:8080" type="video/ogg" />
+	    HTML5 video not supported.
+	</video>
+
+</body>
+<script type="text/javascript">
+	var video = document.getElementById("myVideo");
+	var prevBuffer = {
+    	"buffer": null,
+    	"time": null
+	};
+	var isBuffering = function(){
+		if(video && video.buffered && video.buffered.end && video.buffered.length > 0){
+	        var buffer = video.buffered.end(0);
+	        var time   = video.currentTime;
+	        // Check if the video hangs because of issues with e.g. performance
+	        if(prevBuffer.buffer === buffer && prevBuffer.time === time && !video.paused){
+	            return true;
+	        }
+	        prevBuffer = {
+	            "buffer": buffer,
+	            "time": time
+	        };
+	        // if((buffer - 3) < time){
+	        if((buffer - 1) < time){
+	            return true;
+	        }
+	    }
+    	return false;
+	};
+	video.addEventListener("play", function(e){
+    	e.target.removeEventListener(e.type, arguments.callee);
+    	setTimeout(function(){
+        	var interval = setInterval(function(){
+            	if(isBuffering()){
+                	clearInterval(interval);
+                	console.log("Buffering");
+            	}
+        	}, 500);
+    	}, 3000);
+	});
+
+	video.addEventListener("canplaythrough", function(e){
+		console.log("canplaythrough fired!! ")
+	})
+
+
+</script>
+</html>
