@@ -2,6 +2,20 @@ Servidor (Comando xTerm):
 ---------
 vlc-wrapper -I dummy -vvv 360x240_2mb.mp4 --sout '#transcode{vcodec=mp4v,acodec=none,vb=800,ab=128}:standard{access=http,mux=ogg,dst=10.0.0.1:8080}' --loop --sout-keep
 
+LOCAL!
+---------
+
+vlc-wrapper -I dummy -vvv 360x240_2mb.mp4 --sout '#transcode{vcodec=mp4v,acodec=none,vb=800,ab=128}:standard{access=http,mux=ogg,dst=10.0.0.1:8080}' --loop --sout-keep
+
+vlc big_buck_bunny_720p_h264.mov --sout '#transcode{vcodec=mp4v,acodec=none,vb=800,ab=128}:standard{access=http,mux=ogg,dst=10.0.0.1:8080}' --loop --sout-keep
+
+vlc big_buck_bunny_720p_h264.mov --sout '#transcode{vcodec=mp4v,scale=1,acodec=none}:http{mux=ffmpeg{mux=flv},dst=:8080}' --loop --sout-keep
+
+vlc big_buck_bunny_720p_h264.mov --sout '#transcode{vcodec=theo,vb=800,scale=1,acodec=none}:http{mux=ogg,dst=:8080}' --loop --sout-keep
+
+vlc big_buck_bunny_720p_stereo.ogg :sout=#transcode{vcodec=theo,vb=800,scale=1,acodec=vorb,ab=128,channels=2,samplerate=44100}:http{mux=ogg,dst=:8081/test} :sout-keep
+
+
 Cliente (Comando xTerm):
 --------
 vlc-wrapper http://localhost:8080 --extraintf=http:logger --verbose=2 --file-logging --logfile=vlc-log.txt
