@@ -4,8 +4,10 @@ from mininet.net import Mininet
 from mininet.node import RemoteController, OVSKernelSwitch
 from mininet.link import TCLink
 from mininet.cli import CLI
-# from mininet.term import makeTerm
 from mininet.log import setLogLevel
+from mininet.term import makeTerm
+
+import time
 
 
 """
@@ -60,6 +62,10 @@ def uav_get_xbase(uav_index):
     formula = (uav_index - (CONF_UAV_NUMBER + 1) / 2) * POS_UAV_DISTANCE
     posx = POS_GUARANI_X + formula
     return int(round(posx))
+
+def runFFServer(net, host):
+
+    pass
 
 
 def topology():
@@ -190,12 +196,22 @@ def topology():
     uav_list[8].cmd(
         'route add -net 10.0.1.0 netmask 255.255.255.0 gw 10.0.0.5')
 
-    """uncomment to plot graph"""
-    net.plotGraph(max_x=200, max_y=200)
+    # """uncomment to plot graph"""
+    # net.plotGraph(max_x=200, max_y=200)
 
     # Starting Mobility
     # net.seed(20)
     # net.startMobility(startTime=0, model='GaussMarkov', min_v=0.5, max_v=0.8)
+
+    # Run FFServer and FFPlay on hosts
+    # uav_list[7].popen("iperf -s -u")
+    makeTerm(uav_list[7], title='FFServer', cmd='ffserver -d')
+    # Wait for ffserver to initialize
+    time.sleep(1)
+    # Running ffplay clients with loglevel trace
+    # makeTerm(h1, title='FFPlay running the video', 
+    #    cmd='ffplay -loglevel trace http://10.0.0.8:8090/movie480.ogg > log_h1.log 2>&1')
+    # makeTerm(h2, title='Iperf client', cmd='')
 
     print '*** Running CLI'
     CLI(net)
