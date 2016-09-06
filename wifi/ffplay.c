@@ -30,6 +30,9 @@
 #include <signal.h>
 #include <stdint.h>
 
+/* UFRGS - PPGC */
+#include <time.h>
+
 #include "libavutil/avstring.h"
 #include "libavutil/eval.h"
 #include "libavutil/mathematics.h"
@@ -364,15 +367,14 @@ static AVPacket flush_pkt;
 
 static SDL_Surface *screen;
 
-
-/* video stall stats */
-static int64_t video_startup_time = 0;
-static int video_stall_number = 0;
-static int64_t video_stall_start_time = 0;
-static int64_t video_stall_end_time = 0;
-static int64_t video_stall_total_time = 0;
-static int video_stalled = 0;
-
+/* Stall info variables */
+/* UFRGS - PPGC */
+static int vstall_stalled = 0;
+static clock_t vstall_start_time = 0;
+static clock_t vstall_end_time = 0;
+static int vstall_count = 0;
+static float vstall_total_time = 0;
+static int vstall_initialization = 0;
 
 #if CONFIG_AVFILTER
 static int opt_add_vfilter(void *optctx, const char *opt, const char *arg)
@@ -1536,9 +1538,29 @@ static void video_refresh(void *opaque, double *remaining_time)
 retry:
         if (frame_queue_nb_remaining(&is->pictq) == 0) {
             // nothing to do, no picture to display in the queue
+
+            /* Video Stall state -- INF / UFRGS */
+            /* if there is no frame to display, the video is stalled */
+            if (!vstall_stalled) {
+                vstall_stalled = 1;
+                vstall_count = vstall_count + 1;
+                vstall_start_time = clock();
+                av_log(NULL, AV_LOG_INFO, "UFRGS: Video stalled! No frames in queue.");
+            }
+
         } else {
             double last_duration, duration, delay;
             Frame *vp, *lastvp;
+
+            /* Video Stall state -- INF / UFRGS */
+            if (vstall_stalled){
+                vstall_stalled = 0;
+                vstall_end_time = clock();
+                float vstall_time_stalled = ((float)(vstall_end_time - vstall_start_time) / 1000000.0F ) * 1000;
+                vstall_total_time = vstall_total_time + vstall_time_stalled;
+                av_log(NULL, AV_LOG_INFO, "UFRGS: Recover from stall!. Stall time %f Stall count: %d", 
+                       vstall_time_stalled, vstall_count);
+            }
 
             /* dequeue the picture */
             lastvp = frame_queue_peek_last(&is->pictq);
@@ -1651,30 +1673,6 @@ display:
                    sqsize,
                    is->video_st ? is->viddec.avctx->pts_correction_num_faulty_dts : 0,
                    is->video_st ? is->viddec.avctx->pts_correction_num_faulty_pts : 0);
-
-            if (((vqsize / 1024) < 10) && !video_stalled){
-                /* If the video queue is empty  */
-                video_stalled = 1;
-                video_stall_start_time = cur_time;
-                video_stall_number = video_stall_number + 1;
-                av_log(NULL, AV_LOG_INFO,
-                       "UFRGS_BUFFERINFO -- Video stalled!!     \r");
-            }
-            else if ((vqsize / 1024) > 10 && video_stalled){
-                video_stalled = 0;
-                video_stall_end_time = cur_time;
-                video_stall_total_time = video_stall_end_time - video_stall_start_time;
-                av_log(NULL, AV_LOG_INFO,
-                       "UFRGS_BUFFERINFO -- Recovering from video stall!!    \r");
-            }
-
-            // log info about stalls (in order to get the stats at the end of run)
-            av_log(NULL, AV_LOG_INFO,
-                   "UFRGS_BUFFERINFO: Buffer is empty. Stalls=%d stall_time=%d startup-time=%d   \r",
-                   video_stall_number,
-                   video_stall_total_time,
-                   video_startup_time);
-            
             fflush(stdout);
             last_time = cur_time;
         }
