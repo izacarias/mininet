@@ -12,12 +12,20 @@ import time
 
 """
 Handorver example (based on proposed scenario)
-
-    Uses addresses: 
+    Used addresses:
     UAVs Mesh:  10.0.0.XXX/24
     Hosts: 10.0.1.XXX/24
         - 10.0.1.[1-9] - UAVs
         - 10.0.1.[91-99] - Hosts
+
+FFServer conf files:
+
+FFServer conf file name: ffserver-<host>.conf
+                         ffserver-sta1.conf -- HttpPort: 8001
+                         ffserver-sta2.conf -- HttpPort: 8002
+                         ...
+                         ...
+                         ffserver-sta9.conf -- HttpPort: 8009
 
 """
 
@@ -41,6 +49,9 @@ POS_UAV_FROM_GUARANI = POS_SCALE / 2
 POS_UAV_DISTANCE = int(4.0 / (CONF_UAV_NUMBER - 1) * POS_SCALE)
 POS_UAV_MOTION = 5
 
+# Experiments params
+EXP_TIMES_TO_RUN = 10
+
 
 class OVSKernelSwitch13(OVSKernelSwitch):
     """
@@ -63,8 +74,11 @@ def uav_get_xbase(uav_index):
     posx = POS_GUARANI_X + formula
     return int(round(posx))
 
-def runFFServer(net, host):
 
+def runFFServer(net, host):
+    termTitle = 'FFServer on {0:s}'.format(host.name())
+    ffserverCmd = 'ffserver-{0:s}.conf'.format(host.name)
+    makeTerm(host, title=termTitle, cmd=ffserverCmd)
     pass
 
 
@@ -203,12 +217,19 @@ def topology():
     # net.seed(20)
     # net.startMobility(startTime=0, model='GaussMarkov', min_v=0.5, max_v=0.8)
 
-    # Run FFServer and FFPlay on hosts
-    # uav_list[7].popen("iperf -s -u")
+    # Run FFServer on Stations
+    runFFServer(net, uav_list[0])   # sta1
+    runFFServer(net, uav_list[4])   # sta5
+    runFFServer(net, uav_list[8])   # sta9
+
     makeTerm(uav_list[7], title='FFServer', cmd='ffserver -d')
     # Wait for ffserver to initialize
     time.sleep(1)
-    # Running ffplay clients with loglevel trace
+
+    # Running ffplay clients with loglevel trace (REPEAT)
+    for i in range(EXP_TIMES_TO_RUN):
+        h1.cmd
+
     # makeTerm(h1, title='FFPlay running the video', 
     #    cmd='ffplay -loglevel trace http://10.0.0.8:8090/movie480.ogg > log_h1.log 2>&1')
     # makeTerm(h2, title='Iperf client', cmd='')
