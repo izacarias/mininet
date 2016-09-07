@@ -30,7 +30,7 @@
 #include <signal.h>
 #include <stdint.h>
 
-/* UFRGS - PPGC */
+/* Video Metrics / INF / UFRGS / Iulisloi Zacarias */
 #include <time.h>
 
 #include "libavutil/avstring.h"
@@ -367,14 +367,16 @@ static AVPacket flush_pkt;
 
 static SDL_Surface *screen;
 
-/* Stall info variables */
-/* UFRGS - PPGC */
+/* Video Metrics / INF / UFRGS / Iulisloi Zacarias */
 static int vstall_stalled = 0;
 static clock_t vstall_start_time = 0;
 static clock_t vstall_end_time = 0;
 static int vstall_count = 0;
 static float vstall_total_time = 0;
-static int vstall_initialization = 0;
+
+static int vinit_initializing = 1;
+static clock_t vinit_start_time = 0;
+static float vinit_total_time = 0;
 
 #if CONFIG_AVFILTER
 static int opt_add_vfilter(void *optctx, const char *opt, const char *arg)
@@ -1249,6 +1251,9 @@ static void do_exit(VideoState *is)
     if (show_status)
         printf("\n");
     SDL_Quit();
+    av_log(NULL, AV_LOG_INFO, 
+           "UFRGS Metrics: init_time=%f; stall_count=%d; stall_time=%f \n",
+           vinit_total_time, vstall_count, vstall_total_time);
     av_log(NULL, AV_LOG_QUIET, "%s", "");
     exit(0);
 }
@@ -1539,9 +1544,9 @@ retry:
         if (frame_queue_nb_remaining(&is->pictq) == 0) {
             // nothing to do, no picture to display in the queue
 
-            /* Video Stall state -- INF / UFRGS */
+            /* Video Metrics / INF / UFRGS / Iulisloi Zacarias */
             /* if there is no frame to display, the video is stalled */
-            if (!vstall_stalled) {
+            if (!vstall_stalled && !vinit_initializing) {
                 vstall_stalled = 1;
                 vstall_count = vstall_count + 1;
                 vstall_start_time = clock();
@@ -1552,14 +1557,23 @@ retry:
             double last_duration, duration, delay;
             Frame *vp, *lastvp;
 
-            /* Video Stall state -- INF / UFRGS */
-            if (vstall_stalled){
+            /* Video Metrics / INF / UFRGS / Iulisloi Zacarias */
+            /* Getting information about stalls and stall time */
+            if (vstall_stalled && !vinit_initializing){
                 vstall_stalled = 0;
                 vstall_end_time = clock();
-                float vstall_time_stalled = ((float)(vstall_end_time - vstall_start_time) / 1000000.0F ) * 1000;
+                float vstall_time_stalled = 
+                    ((float)(vstall_end_time - vstall_start_time) / 1000000.0F ) * 1000;
                 vstall_total_time = vstall_total_time + vstall_time_stalled;
                 av_log(NULL, AV_LOG_INFO, "UFRGS: Recover from stall!. Stall time %f Stall count: %d", 
                        vstall_time_stalled, vstall_count);
+            }
+            /* Getting the start time of stream AppQoE */
+            if (vinit_initializing){
+                vinit_initializing = 0;
+                clock_t vinit_current_time = clock();
+                vinit_total_time = 
+                    ((float)(vinit_current_time - vinit_start_time) / 1000000.0F ) * 1000;
             }
 
             /* dequeue the picture */
@@ -1677,6 +1691,8 @@ display:
             last_time = cur_time;
         }
     }
+    if (get_master_clock(is) >= 60)
+        do_exit(is);
 }
 
 /* allocate a picture (needs to do that in main thread to avoid
@@ -3384,6 +3400,9 @@ static void event_loop(VideoState *cur_stream)
     SDL_Event event;
     double incr, pos, frac;
 
+    /* Video Metrics / INF / UFRGS / Iulisloi Zacarias */
+    vinit_start_time = clock();
+
     for (;;) {
         double x;
         refresh_loop_wait_event(cur_stream, &event);
@@ -3829,6 +3848,11 @@ int main(int argc, char **argv)
     signal(SIGTERM, sigterm_handler); /* Termination (ANSI).  */
 
     show_banner(argc, argv, options);
+    av_log(NULL, AV_LOG_INFO, "This is a modified version of software ffplay in order\n");
+    av_log(NULL, AV_LOG_INFO, "to collect AppQoE metrics during video playing. \n");
+    av_log(NULL, AV_LOG_INFO, "These changes were made at: \n");
+    av_log(NULL, AV_LOG_INFO, "    Federal University of Rio Grande do Sul \n");
+    av_log(NULL, AV_LOG_INFO, "    Institute of Informatics. \n");
 
     parse_options(NULL, argc, argv, options, opt_input_file);
 
