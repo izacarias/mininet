@@ -7,6 +7,7 @@ from mininet.cli import CLI
 from mininet.log import setLogLevel
 from mininet.term import makeTerm
 
+import threading
 import time
 
 
@@ -33,6 +34,10 @@ FFServer conf file name: ffserver-<host>.conf
 OF_CONTROLLER_IP = '192.168.56.1'
 OF_CONTROLLER_PORT = 6633
 
+# FFMpeg Binaries
+FFSERVER_BIN = '/home/mininet/bin/ffserver'
+FFPLAY_BIN = '/home/mininet/bin/ffplay'
+
 # Number of UAVs
 CONF_UAV_NUMBER = 9
 CONF_GUARANI_NUMBER = 4
@@ -50,7 +55,10 @@ POS_UAV_DISTANCE = int(4.0 / (CONF_UAV_NUMBER - 1) * POS_SCALE)
 POS_UAV_MOTION = 5
 
 # Experiments params
-EXP_TIMES_TO_RUN = 10
+# EXP_TIMES_TO_RUN = 30
+# EXP_STREAMS_LIST = ['h264400', 'h2641000', 'h2642250']
+EXP_TIMES_TO_RUN = 1
+EXP_STREAMS_LIST = ['h264400']
 
 
 class OVSKernelSwitch13(OVSKernelSwitch):
@@ -75,11 +83,37 @@ def uav_get_xbase(uav_index):
     return int(round(posx))
 
 
-def runFFServer(net, host):
-    termTitle = 'FFServer on {0:s}'.format(host.name())
-    ffserverCmd = 'ffserver-{0:s}.conf'.format(host.name)
-    makeTerm(host, title=termTitle, cmd=ffserverCmd)
-    pass
+def runFFServer(server_host):
+    termTitle = 'FFServer on {0:s}'.format(server_host.name)
+    conf_path = '/home/mininet/ffserver/'
+    ffserver_cmd = '{0:s} -f {1:s}ffserver-{2:s}.conf'.format(
+        FFSERVER_BIN, conf_path, server_host.name)
+    # print '*** Starting server: ' + ffserver_cmd
+    makeTerm(server_host, title=termTitle, cmd=ffserver_cmd)
+
+
+def runFFPlay(player_host, server_host, stream_name, rep, exp_name):
+    """ List of ffservers """
+    servers = {'sta1': {'ip': '10.0.0.1', 'port': '8001'},
+               'sta2': {'ip': '10.0.0.2', 'port': '8002'},
+               'sta3': {'ip': '10.0.0.3', 'port': '8003'},
+               'sta4': {'ip': '10.0.0.4', 'port': '8004'},
+               'sta5': {'ip': '10.0.0.5', 'port': '8005'},
+               'sta6': {'ip': '10.0.0.6', 'port': '8006'},
+               'sta7': {'ip': '10.0.0.7', 'port': '8007'},
+               'sta8': {'ip': '10.0.0.8', 'port': '8008'},
+               'sta9': {'ip': '10.0.0.9', 'port': '8009'}}
+    termTitle = 'FFPlayer from {0:s}'.format(server_host.name)
+    stream_url = 'http://{0:s}:{1:s}/{2:s}'.format(
+        servers[server_host.name]['ip'], servers[server_host.name]['port'],
+        stream_name)
+    logfile_name = 'log_{0:s}_{1:s}_rep{2:d}_{3:s}.log'.format(
+        server_host.name, stream_name, rep, exp_name)
+    ffplayer_cmd = '{0:s} {1:s} 2>&1 | tee {2:s}'.format(
+        FFPLAY_BIN, stream_url, logfile_name)
+    # print '*** Starting client: ' + ffplayer_cmd
+    # makeTerm(player_host, title=termTitle, cmd=ffplayer_cmd)
+    player_host.cmd(ffplayer_cmd)
 
 
 def topology():
@@ -92,7 +126,7 @@ def topology():
     # List of Switches and APs (Guaranis)
     sw_list = []
     ap_list = []
-    print "*** Creates a remote controller"
+    print "*** Creating a remote controller"
     c1 = RemoteController('c1', ip=OF_CONTROLLER_IP, port=OF_CONTROLLER_PORT)
 
     print "*** Creating a network."
@@ -218,24 +252,76 @@ def topology():
     # net.startMobility(startTime=0, model='GaussMarkov', min_v=0.5, max_v=0.8)
 
     # Run FFServer on Stations
-    runFFServer(net, uav_list[0])   # sta1
-    runFFServer(net, uav_list[4])   # sta5
-    runFFServer(net, uav_list[8])   # sta9
+    runFFServer(uav_list[0])   # sta1
+    runFFServer(uav_list[4])   # sta5
+    runFFServer(uav_list[8])   # sta9
 
-    makeTerm(uav_list[7], title='FFServer', cmd='ffserver -d')
     # Wait for ffserver to initialize
-    time.sleep(1)
+    # time.sleep(1)
 
-    # Running ffplay clients with loglevel trace (REPEAT)
-    for i in range(EXP_TIMES_TO_RUN):
-        h1.cmd
+    # Iterate over all stream names
+    for stream_name in EXP_STREAMS_LIST:
+        # for repetition in range(EXP_TIMES_TO_RUN):
+        #     print '**** Running Exp {0:d} of stream {1:s} scenario ONE'. \
+        #         format(repetition, stream_name)
+        #     # Run the experiments X times with one client (server on sta1)
+        #     runFFPlay(h1, uav_list[0], stream_name, repetition, 'ONE')
 
-    # makeTerm(h1, title='FFPlay running the video', 
-    #    cmd='ffplay -loglevel trace http://10.0.0.8:8090/movie480.ogg > log_h1.log 2>&1')
-    # makeTerm(h2, title='Iperf client', cmd='')
+        # for repetition in range(EXP_TIMES_TO_RUN):
+        #     print '**** Running Exp {0:d} of stream {1:s} scenario ONE'. \
+        #         format(repetition, stream_name)
+        #     # Run the experiments X times with one client (server on sta9)
+        #     runFFPlay(h1, uav_list[4], stream_name, repetition, 'ONE')
 
-    print '*** Running CLI'
-    CLI(net)
+        # for repetition in range(EXP_TIMES_TO_RUN):
+        #     print '**** Running Exp {0:d} of stream {1:s} scenario ONE'. \
+        #         format(repetition, stream_name)
+        #     # Run the experiments X times with one client (server on sta9)
+        #     runFFPlay(h1, uav_list[8], stream_name, repetition, 'ONE')
+
+        # run video with TWO simulataneous clients
+        for repetition in range(EXP_TIMES_TO_RUN):
+            print '**** Running Exp {0:d} of stream {1:s} scenario TWO'. \
+                format(repetition, stream_name)
+            ffplay_runners = []
+            ffplay_runners.append(threading.Timer(
+                (1.0), runFFPlay,
+                [h1, uav_list[0], stream_name, repetition, 'TWO']))
+            ffplay_runners.append(threading.Timer(
+                (1.0), runFFPlay,
+                [h1, uav_list[4], stream_name, repetition, 'TWO']))
+            # start FFPlay Runners
+            for play_thread in ffplay_runners:
+                print "**** Start thread *****"
+                play_thread.start()
+            # Join FFPlay Runners
+            for play_thread in ffplay_runners:
+                play_thread.join()
+
+        # # run video with THREE simulataneous clients
+        # for repetition in range(EXP_TIMES_TO_RUN):
+        #     print '**** Running Exp {0:d} of stream {1:s} scenario THREE'. \
+        #         format(repetition, stream_name)
+        #     # run video with two simulataneous clients
+        #     ffplay_runners = []
+        #     ffplay_runners.append(threading.Timer(
+        #         (1.0), runFFPlay,
+        #         [h1, uav_list[0], stream_name, repetition, 'THREE']))
+        #     ffplay_runners.append(threading.Timer(
+        #         (1.0), runFFPlay,
+        #         [h1, uav_list[4], stream_name, repetition, 'THREE']))
+        #     ffplay_runners.append(threading.Timer(
+        #         (1.0), runFFPlay,
+        #         [h1, uav_list[8], stream_name, repetition, 'THREE']))
+        #     # start FFPlay Runners
+        #     for play_thread in ffplay_runners:
+        #         play_thread.start()
+        #     # Join FFPlay Runners
+        #     for play_thread in ffplay_runners:
+        #         play_thread.join()
+
+    # print '*** Running CLI'
+    # CLI(net)
 
     print '*** Stopping network'
     net.stop()
