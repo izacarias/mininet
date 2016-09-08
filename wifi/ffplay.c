@@ -1546,11 +1546,13 @@ retry:
 
             /* Video Metrics / INF / UFRGS / Iulisloi Zacarias */
             /* if there is no frame to display, the video is stalled */
-            if (!vstall_stalled && !vinit_initializing) {
+
+            /* Only count stall if not already stalled, not initializing and time is grather than 0 */
+            if (!vstall_stalled && !vinit_initializing && (get_master_clock(is) > 0.0)) {
                 vstall_stalled = 1;
                 vstall_count = vstall_count + 1;
                 vstall_start_time = clock();
-                av_log(NULL, AV_LOG_INFO, "UFRGS: Video stalled! No frames in queue.");
+                av_log(NULL, AV_LOG_INFO, "UFRGS: Video stalled! No frames in queue. \n");
             }
 
         } else {
@@ -1558,22 +1560,30 @@ retry:
             Frame *vp, *lastvp;
 
             /* Video Metrics / INF / UFRGS / Iulisloi Zacarias */
-            /* Getting information about stalls and stall time */
-            if (vstall_stalled && !vinit_initializing){
-                vstall_stalled = 0;
-                vstall_end_time = clock();
-                float vstall_time_stalled = 
-                    ((float)(vstall_end_time - vstall_start_time) / 1000000.0F ) * 1000;
-                vstall_total_time = vstall_total_time + vstall_time_stalled;
-                av_log(NULL, AV_LOG_INFO, "UFRGS: Recover from stall!. Stall time %f Stall count: %d", 
-                       vstall_time_stalled, vstall_count);
-            }
-            /* Getting the start time of stream AppQoE */
-            if (vinit_initializing){
-                vinit_initializing = 0;
-                clock_t vinit_current_time = clock();
-                vinit_total_time = 
-                    ((float)(vinit_current_time - vinit_start_time) / 1000000.0F ) * 1000;
+            if (vinit_initializing)
+            {
+                /* Video still initializing, do not count stalls! */
+                /* If video current time if not "0", it is already initialized */
+                if (get_master_clock(is) > 0.0){
+                    /* Getting the start time of stream AppQoE */
+                    vinit_initializing = 0;
+                    clock_t vinit_current_time = clock();
+                    vinit_total_time = 
+                        ((float)(vinit_current_time - vinit_start_time) / 1000000.0F ) * 1000;
+                    av_log(NULL, AV_LOG_INFO, "UFRGS: Video initialized! Init_time=%f \n", vinit_total_time);
+                }
+            } else {
+                /* Video already initialized, count the number or stalls
+                /* Getting information about stalls and stall time */
+                if (vstall_stalled && !vinit_initializing){
+                    vstall_stalled = 0;
+                    vstall_end_time = clock();
+                    float vstall_time_stalled = 
+                          ((float)(vstall_end_time - vstall_start_time) / 1000000.0F ) * 1000;
+                    vstall_total_time = vstall_total_time + vstall_time_stalled;
+                    av_log(NULL, AV_LOG_INFO, "UFRGS: Recover from stall!. Stall_time=%f Stall_count=%d \n", 
+                           vstall_time_stalled, vstall_count);
+                }
             }
 
             /* dequeue the picture */
