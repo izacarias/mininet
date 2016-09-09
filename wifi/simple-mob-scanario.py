@@ -6,8 +6,8 @@ from mininet.link import TCLink
 from mininet.cli import CLI
 from mininet.log import setLogLevel
 from mininet.term import makeTerm
+from mininet.util import pmonitor
 
-import threading
 import time
 
 
@@ -55,9 +55,8 @@ POS_UAV_DISTANCE = int(4.0 / (CONF_UAV_NUMBER - 1) * POS_SCALE)
 POS_UAV_MOTION = 5
 
 # Experiments params
-# EXP_TIMES_TO_RUN = 30
+EXP_TIMES_TO_RUN = 30
 # EXP_STREAMS_LIST = ['h264400', 'h2641000', 'h2642250']
-EXP_TIMES_TO_RUN = 1
 EXP_STREAMS_LIST = ['h264400']
 
 
@@ -103,17 +102,17 @@ def runFFPlay(player_host, server_host, stream_name, rep, exp_name):
                'sta7': {'ip': '10.0.0.7', 'port': '8007'},
                'sta8': {'ip': '10.0.0.8', 'port': '8008'},
                'sta9': {'ip': '10.0.0.9', 'port': '8009'}}
-    termTitle = 'FFPlayer from {0:s}'.format(server_host.name)
     stream_url = 'http://{0:s}:{1:s}/{2:s}'.format(
         servers[server_host.name]['ip'], servers[server_host.name]['port'],
         stream_name)
-    logfile_name = 'log_{0:s}_{1:s}_rep{2:d}_{3:s}.log'.format(
+    logfile_name = 'log_{0:s}_{1:s}_rep{2:02d}_{3:s}.log'.format(
         server_host.name, stream_name, rep, exp_name)
-    ffplayer_cmd = '{0:s} {1:s} 2>&1 | tee {2:s}'.format(
+    ffplayer_cmd = '{0:s} -an {1:s} 2>&1 | tee {2:s}'.format(
         FFPLAY_BIN, stream_url, logfile_name)
-    # print '*** Starting client: ' + ffplayer_cmd
+    termTitle = 'FFPlayer from {0:s}'.format(server_host.name)
+    print '*** Starting client: ' + ffplayer_cmd
     # makeTerm(player_host, title=termTitle, cmd=ffplayer_cmd)
-    player_host.cmd(ffplayer_cmd)
+    return player_host.popen(ffplayer_cmd)
 
 
 def topology():
@@ -253,19 +252,32 @@ def topology():
 
     # Run FFServer on Stations
     runFFServer(uav_list[0])   # sta1
-    runFFServer(uav_list[4])   # sta5
-    runFFServer(uav_list[8])   # sta9
+    runFFServer(uav_list[4])   # sta1
+    runFFServer(uav_list[8])   # sta1
 
     # Wait for ffserver to initialize
-    # time.sleep(1)
+    time.sleep(5)
 
     # Iterate over all stream names
     for stream_name in EXP_STREAMS_LIST:
-        # for repetition in range(EXP_TIMES_TO_RUN):
-        #     print '**** Running Exp {0:d} of stream {1:s} scenario ONE'. \
-        #         format(repetition, stream_name)
-        #     # Run the experiments X times with one client (server on sta1)
-        #     runFFPlay(h1, uav_list[0], stream_name, repetition, 'ONE')
+        for repetition in range(EXP_TIMES_TO_RUN):
+            # Run the experiments X times with one client (server on sta1)'
+            print '**** Running Exp {0:d} of stream {1:s} scenario {2:s}'. \
+                format(repetition, stream_name, 'ONE')
+            ffplay_pids = []
+            ffplay_pids.append(
+                runFFPlay(h1, uav_list[0], stream_name, repetition, 'ONE'))
+
+            # Wait for ffplay to terminate
+            # wait_cmd = 'wait {0:s}'.format(
+            #     ' '.join([str(x) for x in ffplay_pids]))
+            print '**** Waiting for FFPlay...'
+            # print '**** [{0:s}]'.format(wait_cmd)
+            # h1.cmd(wait_cmd)
+            print ffplay_pids
+            # ffplay_pids[0].wait()
+            time.sleep(60 * 2)
+            print '**** Done, next interation...'
 
         # for repetition in range(EXP_TIMES_TO_RUN):
         #     print '**** Running Exp {0:d} of stream {1:s} scenario ONE'. \
@@ -280,23 +292,24 @@ def topology():
         #     runFFPlay(h1, uav_list[8], stream_name, repetition, 'ONE')
 
         # run video with TWO simulataneous clients
-        for repetition in range(EXP_TIMES_TO_RUN):
-            print '**** Running Exp {0:d} of stream {1:s} scenario TWO'. \
-                format(repetition, stream_name)
-            ffplay_runners = []
-            ffplay_runners.append(threading.Timer(
-                (1.0), runFFPlay,
-                [h1, uav_list[0], stream_name, repetition, 'TWO']))
-            ffplay_runners.append(threading.Timer(
-                (1.0), runFFPlay,
-                [h1, uav_list[4], stream_name, repetition, 'TWO']))
-            # start FFPlay Runners
-            for play_thread in ffplay_runners:
-                print "**** Start thread *****"
-                play_thread.start()
-            # Join FFPlay Runners
-            for play_thread in ffplay_runners:
-                play_thread.join()
+        # for repetition in range(EXP_TIMES_TO_RUN):
+        #     print '**** Running Exp {0:d} of stream {1:s} scenario TWO'. \
+        #         format(repetition, stream_name)
+        #     ffplay_runners = []
+        #     ffplay_runners.append(threading.Timer(
+        #         (1.0), runFFPlay,
+        #         [h1, uav_list[0], stream_name, repetition, 'TWO']))
+        #     ffplay_runners.append(threading.Timer(
+        #         (1.0), runFFPlay,
+        #         [h1, uav_list[4], stream_name, repetition, 'TWO']))
+        #     # start FFPlay Runners
+        #     for play_thread in ffplay_runners:
+        #         print "**** Start thread *****"
+        #         play_thread.start()
+        #     # Join FFPlay Runners
+        #     for play_thread in ffplay_runners:
+        #         play_thread.join()
+        #     time.sleep(5 * 60)  # Waiting for the end of the movie...
 
         # # run video with THREE simulataneous clients
         # for repetition in range(EXP_TIMES_TO_RUN):
@@ -319,9 +332,10 @@ def topology():
         #     # Join FFPlay Runners
         #     for play_thread in ffplay_runners:
         #         play_thread.join()
+        #     time.sleep(5 * 60)  # Waiting for the end of the movie...
 
-    # print '*** Running CLI'
-    # CLI(net)
+    print '*** Running CLI'
+    CLI(net)
 
     print '*** Stopping network'
     net.stop()
