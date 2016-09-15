@@ -1,13 +1,16 @@
 #!/usr/bin/python
+import gc
+import os
+import sys
+import time
 
 from mininet.net import Mininet
-from mininet.node import RemoteController, OVSKernelSwitch
+from mininet.node import RemoteController, OVSKernelSwitch, UserSwitch
+
 from mininet.link import TCLink
 from mininet.cli import CLI
 from mininet.log import setLogLevel
 from mininet.term import makeTerm
-
-import time
 
 
 """
@@ -54,18 +57,25 @@ POS_UAV_DISTANCE = int(4.0 / (CONF_UAV_NUMBER - 1) * POS_SCALE)
 POS_UAV_MOTION = 5
 
 # Experiments params
+EXP_START_FROM = 0
 EXP_TIMES_TO_RUN = 30
-EXP_STREAMS_LIST = ['h264400', 'h2641000', 'h2642250']
-# EXP_STREAMS_LIST = ['h264400']
+# EXP_STREAMS_LIST = ['h264400', 'h2641000', 'h2642250']
+EXP_STREAMS_LIST = ['h2641000']
 
 
 class OVSKernelSwitch13(OVSKernelSwitch):
     """
     Class for use of OpenFlow 1.3 (Inheritance)
     """
-
     def __init__(self, *args, **kwargs):
         OVSKernelSwitch.__init__(self, protocols='OpenFlow13', *args, **kwargs)
+
+class UserSwitch13(UserSwitch):
+    """
+    Class using OpenFlow 1.3 (Inheritance)
+    """
+    def __init__(self, *args, **kwargs):
+        UserSwitch.__init__(self, protocols='OpenFlow13', *args, **kwargs)
 
 
 def uav_get_ybase():
@@ -87,8 +97,9 @@ def runFFServer(server_host):
     ffserver_cmd = '{0:s} -f {1:s}ffserver-{2:s}.conf'.format(
         FFSERVER_BIN, conf_path, server_host.name)
     # print '*** Starting server: ' + ffserver_cmd
-    po_tunnel,po_terminal = makeTerm(server_host, title=termTitle, cmd=ffserver_cmd)
-    return po_tunnel, po_terminal 
+    po_tunnel, po_terminal = makeTerm(
+        server_host, title=termTitle, cmd=ffserver_cmd)
+    return po_tunnel, po_terminal
 
 
 def runFFPlay(player_host, server_host, stream_name, rep, exp_name):
@@ -111,11 +122,12 @@ def runFFPlay(player_host, server_host, stream_name, rep, exp_name):
         FFPLAY_BIN, stream_url, logfile_name)
     termTitle = 'FFPlayer from {0:s}'.format(server_host.name)
     # print '*** Starting client: ' + ffplayer_cmd
-    po_tunnel, po_terminal = makeTerm(player_host, title=termTitle, cmd=ffplayer_cmd)
+    po_tunnel, po_terminal = makeTerm(
+        player_host, title=termTitle, cmd=ffplayer_cmd)
     return po_tunnel, po_terminal
 
 
-def topology():
+def topology(start_from_rep):
     """
       Creates the network elements in Mininet
     """
@@ -131,7 +143,7 @@ def topology():
     print "*** Creating a network."
     net = Mininet(controller=c1,
                   link=TCLink,
-                  switch=OVSKernelSwitch13)
+                  switch=UserSwitch13)
 
     # # Creating N UAV (configured by CONF_UAV_NUMBER)
     print '*** Creating UAVs (Stations)'
@@ -189,16 +201,24 @@ def topology():
                                                        sw_list[i + 1].name)
         net.addLink(sw_list[i], sw_list[i + 1])
 
+    print "*** Creating Hosts and adding links..."
     h1 = net.addHost('h1', mac='00:00:00:00:01:91', ip='10.0.1.91/24')
-    # h2 = net.addHost('h2', mac='00:00:00:00:01:92', ip='10.0.1.92/24')
-    """ Creating routes on hosts """
     net.addLink(h1, sw_list[0])
+    # h2 = net.addHost('h2', mac='00:00:00:00:01:92', ip='10.0.1.92/24')
     # net.addLink(h2, sw_list[-1])
 
     print '*** Adding Mesh network among Stations'
     for uav in uav_list:
         print '    - Adding UAV {0:s} to mesh network'.format(uav.name)
         net.addMesh(uav, ssid='meshNet')
+
+    # """uncomment to plot graph"""
+    net.plotGraph(max_x=200, max_y=200)
+
+    print '*** Adding custom routing model to mesh...'
+    net.meshRouting('custom')
+
+    net.seed(20)
 
     print '*** Starting network'
     net.build()
@@ -212,10 +232,16 @@ def topology():
         print '    - Starting {0:s}'.format(ap.name)
         ap.start([c1])
 
+    os.system('ovs-vsctl add-port ap{0:s} wlan0'.format(CONF_GUARANI_NUMBER))
+
     print '**** Associating UAV5 to Access Point'
     uav_list[4].cmd('iwconfig sta5-wlan1 essid ssid_ap9')
     print '**** Configuring the IP address for UAV Wireless interface'
-    uav_list[4].cmd('ifconfig sta5-wlan1 10.0.1.5/24')
+
+    for uav in uav_list:
+        uav.cmd(
+            'ifconfig sta{0:s}-wlan1 10.0.1.{0:s}/24'
+            .format(uav_list.index(uav)))
 
     # Adding routes to hosts
     h1.cmd('route add -net 10.0.0.0 netmask 255.255.255.0 gw 10.0.1.5')
@@ -243,45 +269,47 @@ def topology():
     uav_list[8].cmd(
         'route add -net 10.0.1.0 netmask 255.255.255.0 gw 10.0.0.5')
 
-    # """uncomment to plot graph"""
-    net.plotGraph(max_x=200, max_y=200)
-
     # Starting Mobility
-    net.seed(20)
     net.startMobility(startTime=0, model='GaussMarkov', min_v=0.5, max_v=0.8)
 
-    # Iterate over all stream names
-    for stream_name in EXP_STREAMS_LIST:
-        for repetition in range(EXP_TIMES_TO_RUN):
-            
-            print '**** Associating UAV5 to Access Point'
-            uav_list[4].cmd('iwconfig sta5-wlan1 essid ssid_ap9')
-            print '**** Configuring the IP address for UAV Wireless interface'
-            uav_list[4].cmd('ifconfig sta5-wlan1 10.0.1.5/24')
+    # Run FFServer on Stations
+    runFFServer(uav_list[0])        # sta1
+    # runFFServer(uav_list[1])        # sta2
+    # runFFServer(uav_list[2])        # sta3
+    # runFFServer(uav_list[3])        # sta4
+    # runFFServer(uav_list[4])        # sta5
+    # runFFServer(uav_list[5])        # sta6
+    # runFFServer(uav_list[6])        # sta7
+    # runFFServer(uav_list[7])        # sta8
+    # runFFServer(uav_list[8])        # sta9
+    # Wait for ffserver to initialize
+    time.sleep(5)
 
-            # Run FFServer on Stations
-            ffsrv_tunnel, ffsrv_term = runFFServer(uav_list[0])   # sta1
-            # runFFServer(uav_list[4])   # sta1
-            # runFFServer(uav_list[8])   # sta1
-            
-            # Wait for ffserver to initialize
-            time.sleep(5)
-            
-            # Run the experiments X times with one client (server on sta1)'
-            print '**** Running Exp {0:d} of stream {1:s} scenario {2:s}'. \
-                format(repetition, stream_name, 'ONE')
-            po_tunnel, po_terminal = runFFPlay(h1, uav_list[0], stream_name, repetition, 'ONE')
-            print '**** Waiting for FFPlay...'
-            time.sleep(80)
-	    try:
-                po_terminal.terminate()
-                po_tunnel.terminate()
-                
-                ffsrv_tunnel.terminate()
-                ffsrv_term.terminate() 
-            except:
-                print '**** There are not xTerms to kill'
-            print '**** ...Done, next interation...'
+    # Iterate over all stream names
+    # for stream_name in EXP_STREAMS_LIST:
+    #     for repetition in range(start_from_rep, EXP_TIMES_TO_RUN):
+
+    #         print '**** Forcing Python Garbage Collection...'
+    #         gc.collect()
+
+    #         print '**** Associating UAV5 to Access Point'
+    #         uav_list[4].cmd('iwconfig sta5-wlan1 essid ssid_ap9')
+    #         print '**** Configuring the IP address for UAV Wireless interface'
+    #         uav_list[4].cmd('ifconfig sta5-wlan1 10.0.1.5/24')
+
+    #         # Run the experiments X times with one client (server on sta1)'
+    #         print '**** Running Exp {0:d} of stream {1:s} scenario {2:s}'. \
+    #             format(repetition, stream_name, 'ONE')
+    #         po_tunnel, po_terminal = runFFPlay(
+    #             h1, uav_list[0], stream_name, repetition, 'ONE')
+    #         print '**** Waiting for FFPlay...'
+    #         time.sleep(90)
+    #         try:
+    #             po_terminal.terminate()
+    #             po_tunnel.terminate()
+    #         except:
+    #             print '**** There are not xTerms to kill'
+    #         print '**** ...Done, next interation...'
 
         # for repetition in range(EXP_TIMES_TO_RUN):
         #     print '**** Running Exp {0:d} of stream {1:s} scenario ONE'. \
@@ -347,4 +375,8 @@ def topology():
 
 if __name__ == '__main__':
     setLogLevel('info')
-    topology()
+    if len(sys.argv) > 1:
+        start_from_run = sys.argv[1]
+    else:
+        start_from_run = 0
+    topology(start_from_run)

@@ -4,6 +4,7 @@
 Handover example.
 
 """
+import time
 
 from mininet.net import Mininet
 from mininet.node import RemoteController, Controller, OVSKernelSwitch
@@ -70,6 +71,7 @@ def runFFPlay(player_host, server_host, stream_name, rep, exp_name):
 
 
 def topology():
+
     "Create a network."
     c1 = RemoteController('c1', ip=OF_CONTROLLER_IP, port=OF_CONTROLLER_PORT)
     net = Mininet(controller=Controller, link=TCLink, switch=OVSKernelSwitch13)
@@ -77,16 +79,15 @@ def topology():
     print "*** Creating nodes"
     sta1 = net.addStation('sta1', mac='00:00:00:00:00:01', ip='10.0.0.1/8')
     sta2 = net.addStation('sta2', mac='00:00:00:00:00:02', ip='10.0.0.2/8')
-    ap1 = net.addBaseStation('ap1', ssid='new-ssid1',
+    ap1 = net.addBaseStation('ap1', ssid='ap-ssid',
                              mode='g', channel='1', position='15,30,0')
-    ap2 = net.addBaseStation('ap2', ssid='new-ssid2',
+    ap2 = net.addBaseStation('ap2', ssid='ap-ssid',
                              mode='g', channel='6', position='55,30,0')
     h1 = net.addHost('h1', mac='00:00:00:00:01:91', ip='10.0.1.91/8')
 
     print "*** Creating links"
     net.addLink(ap1, ap2)
-    net.addLink(ap1, sta1)
-    net.addLink(ap1, sta2)
+    net.addLink(ap1, h1)
 
     print "*** Starting network"
     net.build()
@@ -94,9 +95,13 @@ def topology():
     ap1.start([c1])
     ap2.start([c1])
 
+    sta1.cmd('iwconfig sta1-wlan0 essid ap-ssid')
+    sta2.cmd('iwconfig sta2-wlan0 essid ap-ssid')
+
     """uncomment to plot graph"""
     net.plotGraph(max_x=100, max_y=100)
 
+    net.seed(20)
     net.startMobility(startTime=0)
     net.mobility('sta1', 'start', time=1, position='10,30,0')
     net.mobility('sta2', 'start', time=2, position='10,40,0')
@@ -104,11 +109,22 @@ def topology():
     net.mobility('sta2', 'stop', time=40, position='25,40,0')
     net.stopMobility(stopTime=40)
 
+    runFFServer(sta1)
+    time.sleep(2)
+
+    CLI(net)
+
+    for i in range(30):
+        runFFPlay(h1, sta1, 'h2641000', i, 'ONE')
+        print '**** Ok.. next iteration'
+        time.sleep(90)
+
     print "*** Running CLI"
     CLI(net)
 
     print "*** Stopping network"
     net.stop()
+
 
 if __name__ == '__main__':
     setLogLevel('info')
