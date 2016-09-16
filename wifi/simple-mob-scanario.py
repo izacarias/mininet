@@ -1,5 +1,4 @@
 #!/usr/bin/python
-import gc
 import os
 import sys
 import time
@@ -69,6 +68,7 @@ class OVSKernelSwitch13(OVSKernelSwitch):
     """
     def __init__(self, *args, **kwargs):
         OVSKernelSwitch.__init__(self, protocols='OpenFlow13', *args, **kwargs)
+
 
 class UserSwitch13(UserSwitch):
     """
@@ -143,9 +143,9 @@ def topology(start_from_rep):
     print "*** Creating a network."
     net = Mininet(controller=c1,
                   link=TCLink,
-                  switch=UserSwitch13)
+                  switch=OVSKernelSwitch13)
 
-    # # Creating N UAV (configured by CONF_UAV_NUMBER)
+    """ Creating N UAV (configured by CONF_UAV_NUMBER)"""
     print '*** Creating UAVs (Stations)'
     for i in range(CONF_UAV_NUMBER):
         print '    - Creating UAV {0:2d} of {1:2d}...'.format(i + 1,
@@ -165,17 +165,12 @@ def topology(start_from_rep):
                                        min_y=uav_min_y, max_y=uav_max_y,
                                        wlans=2, position=uav_position))
 
-    # print '*** Creating UAVs (Stations)'
-    # for uav in uav_list:
-    #     print '    - Adding UAV {0:s} to WifiDirect'.format(uav.name)
-    #     net.wifiDirect(uav)
-
     print "*** Creating static Guaranis (Switch + AP)"
     for i in xrange(1, CONF_GUARANI_NUMBER + 1):
         print '    - Creating Guarani (Switch + AP) {0:d} of {1:d}' \
             .format(i, CONF_GUARANI_NUMBER)
         sw_name = 's{0:d}'.format(i)
-        sw_dpid = '000000000000000{0:d}'.format(i)
+        sw_dpid = '00000000000000{0:02d}'.format(i)
         sw_list.append(net.addSwitch(sw_name, dpid=sw_dpid))
 
         if i == CONF_GUARANI_NUMBER:
@@ -202,8 +197,8 @@ def topology(start_from_rep):
         net.addLink(sw_list[i], sw_list[i + 1])
 
     print "*** Creating Hosts and adding links..."
-    h1 = net.addHost('h1', mac='00:00:00:00:01:91', ip='10.0.1.91/24')
-    net.addLink(h1, sw_list[0])
+    # h1 = net.addHost('h1', mac='00:00:00:00:01:91', ip='10.0.1.91/24')
+    # net.addLink(h1, sw_list[0])
     # h2 = net.addHost('h2', mac='00:00:00:00:01:92', ip='10.0.1.92/24')
     # net.addLink(h2, sw_list[-1])
 
@@ -232,24 +227,40 @@ def topology(start_from_rep):
         print '    - Starting {0:s}'.format(ap.name)
         ap.start([c1])
 
-    os.system('ovs-vsctl add-port ap{0:s} wlan0'.format(CONF_GUARANI_NUMBER))
+    os.system('ovs-vsctl add-port ap{0:d} wlan0'.format(CONF_GUARANI_NUMBER))
 
     print '**** Associating UAV5 to Access Point'
     uav_list[4].cmd('iwconfig sta5-wlan1 essid ssid_ap9')
     print '**** Configuring the IP address for UAV Wireless interface'
 
     for uav in uav_list:
+        print '**** Configuring {0:s}-wlan1: 10.0.1.{1:d}/24' \
+            .format(uav.name, uav_list.index(uav) + 1)
         uav.cmd(
-            'ifconfig sta{0:s}-wlan1 10.0.1.{0:s}/24'
-            .format(uav_list.index(uav)))
+            'ifconfig {0:s}-wlan1 10.0.1.{1:d}/24'
+            .format(uav.name, uav_list.index(uav) + 1))
+        uav.cmd(
+            'iptables -A FORWARD -i {0:s}-wlan1 -o {0:s}-mp0 -j ACCEPT'
+            .format(uav.name))
+        uav.cmd(
+            'iptables -A FORWARD -i {0:s}-mp0 -o {0:s}-wlan1 -j ACCEPT'
+            .format(uav.name))
+        uav.cmd(
+            'iptables -A FORWARD -i {0:s}-mp0 -o {0:s}-wlan1 -m state ' +
+            '--state ESTABLISHED,RELATED -j ACCEPT'
+            .format(uav.name))
+        uav.cmd(
+            'iptables -t nat -A POSTROUTING -o {0:s}-mp0 -j MASQUERADE'
+            .format(uav.name))
+        uav.cmd('echo 1 > /proc/sys/net/ipv4/ip_forward')
 
     # Adding routes to hosts
-    h1.cmd('route add -net 10.0.0.0 netmask 255.255.255.0 gw 10.0.1.5')
+    # h1.cmd('route add -net 10.0.0.0 netmask 255.255.255.0 gw 10.0.1.5')
     # h2.cmd('route add -net 10.0.0.0 netmask 255.255.255.0 gw 10.0.1.5')
     # Enabling the routing by node sta5
     uav_list[4].cmd(
         'route add -net 10.0.1.0 netmask 255.255.255.0 dev sta5-wlan1')
-    uav_list[4].cmd('echo 1 > /proc/sys/net/ipv4/ip_forward')
+    # uav_list[4].cmd('echo 1 > /proc/sys/net/ipv4/ip_forward')
     # Configuring staX routes
     uav_list[0].cmd(
         'route add -net 10.0.1.0 netmask 255.255.255.0 gw 10.0.0.5')
@@ -270,10 +281,11 @@ def topology(start_from_rep):
         'route add -net 10.0.1.0 netmask 255.255.255.0 gw 10.0.0.5')
 
     # Starting Mobility
-    net.startMobility(startTime=0, model='GaussMarkov', min_v=0.5, max_v=0.8)
+    # net.startMobility(startTime=0, model='RandomWalk',
+    #                   max_x=200, max_y=200, min_v=0.1, max_v=0.2)
 
     # Run FFServer on Stations
-    runFFServer(uav_list[0])        # sta1
+    # runFFServer(uav_list[0])        # sta1
     # runFFServer(uav_list[1])        # sta2
     # runFFServer(uav_list[2])        # sta3
     # runFFServer(uav_list[3])        # sta4

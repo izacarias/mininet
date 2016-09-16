@@ -1,8 +1,7 @@
 #!/usr/bin/python
 
-
 from mininet.net import Mininet
-from mininet.node import RemoteController, UserSwitch
+from mininet.node import RemoteController, UserSwitch, OVSKernelSwitch
 from mininet.link import TCLink
 from mininet.cli import CLI
 from mininet.log import setLogLevel
@@ -13,10 +12,26 @@ OF_CONTROLLER_IP = '143.54.12.179'
 OF_CONTROLLER_PORT = 6633
 
 
+class UserSwitch13(UserSwitch):
+    """
+    Class using OpenFlow 1.3 (Inheritance)
+    """
+    def __init__(self, *args, **kwargs):
+        UserSwitch.__init__(self, protocols='OpenFlow13', *args, **kwargs)
+
+
+class OVSKernelSwitch13(OVSKernelSwitch):
+    """
+    Class for use of OpenFlow 1.3 (Inheritance)
+    """
+    def __init__(self, *args, **kwargs):
+        OVSKernelSwitch.__init__(self, protocols='OpenFlow13', *args, **kwargs)
+
+
 def topology():
     "Create a network."
-    c1 = RemoteController('c1', ip=OF_CONTROLLER_IP, port=OF_CONTROLLER_PORT)
-    net = Mininet(controller=c1, link=TCLink, switch=UserSwitch)
+    c1 = RemoteController('c1')
+    net = Mininet(controller=c1, link=TCLink, switch=UserSwitch13)
     #    net = Mininet( controller=RemoteController, link=TCLink, switch=OVSKernelSwitch )
     sta = []
 
@@ -34,14 +49,14 @@ def topology():
     ap4 = net.addBaseStation('ap4', ssid='ap-ssid4',
                              mode='g', channel='6', position='150,115,0')
 #    phyap = net.addPhysicalBaseStation( 'phyap5', ssid= 'new-ssid5', mode= 'g', channel= '6', position='170,185,0', wlan='wlan1' )
-    c1 = net.addController('c1', controller=RemoteController)
+    # c1 = net.addController('c1', controller=RemoteController)
 
     print "*** Creating links"
     for station in sta:
         net.addMesh(station, ssid='meshNet')
 
     """uncomment to plot graph"""
-    net.plotGraph(max_x=240, max_y=240)
+    net.plotGraph(max_x=200, max_y=200)
 
     """Routing"""
     net.meshRouting('custom')
@@ -54,9 +69,9 @@ def topology():
     net.addLink(ap2, ap3)
     net.addLink(ap3, ap4)
     net.addLink(ap4, ap1)
- #   net.addLink(phyap, ap1)
+    # net.addLink(phyap, ap1)
 
-    net.addOfDataPath('ap4', 'wlan0')
+    # net.addOfDataPath('ap4', 'wlan0')
 
     print "*** Starting network"
     net.build()
@@ -89,7 +104,7 @@ def topology():
 
     "*** Available models: RandomWalk, TruncatedLevyWalk, RandomDirection, RandomWayPoint, GaussMarkov, ReferencePoint, TimeVariantCommunity ***"
     net.startMobility(startTime=0, model='RandomWalk',
-                      max_x=200, max_y=220, min_v=0.1, max_v=0.2)
+                      max_x=200, max_y=200, min_v=0.1, max_v=0.2)
 
     print "*** Running CLI"
     CLI(net)
