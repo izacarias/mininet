@@ -2,6 +2,7 @@
 import os
 import sys
 import time
+import datetime
 
 from mininet.net import Mininet
 from mininet.node import RemoteController, OVSKernelSwitch, UserSwitch
@@ -102,7 +103,7 @@ def runFFServer(server_host):
     return po_tunnel, po_terminal
 
 
-def runFFPlay(player_host, server_host, stream_name, rep, exp_name):
+def runFFPlay(player_host, server_host, stream_name, exp_name):
     """ List of ffservers """
     servers = {'sta1': {'ip': '10.0.0.1', 'port': '8001'},
                'sta2': {'ip': '10.0.0.2', 'port': '8002'},
@@ -113,6 +114,7 @@ def runFFPlay(player_host, server_host, stream_name, rep, exp_name):
                'sta7': {'ip': '10.0.0.7', 'port': '8007'},
                'sta8': {'ip': '10.0.0.8', 'port': '8008'},
                'sta9': {'ip': '10.0.0.9', 'port': '8009'}}
+    rep = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     stream_url = 'http://{0:s}:{1:s}/{2:s}'.format(
         servers[server_host.name]['ip'], servers[server_host.name]['port'],
         stream_name)
@@ -127,7 +129,7 @@ def runFFPlay(player_host, server_host, stream_name, rep, exp_name):
     return po_tunnel, po_terminal
 
 
-def topology(start_from_rep):
+def topology(run_number, stream_name):
     """
       Creates the network elements in Mininet
     """
@@ -197,8 +199,8 @@ def topology(start_from_rep):
         net.addLink(sw_list[i], sw_list[i + 1])
 
     print "*** Creating Hosts and adding links..."
-    # h1 = net.addHost('h1', mac='00:00:00:00:01:91', ip='10.0.1.91/24')
-    # net.addLink(h1, sw_list[0])
+    h1 = net.addHost('h1', mac='00:00:00:00:01:91', ip='10.0.1.91/24')
+    net.addLink(h1, sw_list[0])
     # h2 = net.addHost('h2', mac='00:00:00:00:01:92', ip='10.0.1.92/24')
     # net.addLink(h2, sw_list[-1])
 
@@ -227,8 +229,6 @@ def topology(start_from_rep):
         print '    - Starting {0:s}'.format(ap.name)
         ap.start([c1])
 
-    os.system('ovs-vsctl add-port ap{0:d} wlan0'.format(CONF_GUARANI_NUMBER))
-
     print '**** Associating UAV5 to Access Point'
     uav_list[4].cmd('iwconfig sta5-wlan1 essid ssid_ap9')
     print '**** Configuring the IP address for UAV Wireless interface'
@@ -255,12 +255,12 @@ def topology(start_from_rep):
         uav.cmd('echo 1 > /proc/sys/net/ipv4/ip_forward')
 
     # Adding routes to hosts
-    # h1.cmd('route add -net 10.0.0.0 netmask 255.255.255.0 gw 10.0.1.5')
-    # h2.cmd('route add -net 10.0.0.0 netmask 255.255.255.0 gw 10.0.1.5')
+    h1.cmd('route add -net 10.0.0.0 netmask 255.255.255.0 gw 10.0.1.5')
+
     # Enabling the routing by node sta5
     uav_list[4].cmd(
         'route add -net 10.0.1.0 netmask 255.255.255.0 dev sta5-wlan1')
-    # uav_list[4].cmd('echo 1 > /proc/sys/net/ipv4/ip_forward')
+
     # Configuring staX routes
     uav_list[0].cmd(
         'route add -net 10.0.1.0 netmask 255.255.255.0 gw 10.0.0.5')
@@ -270,7 +270,9 @@ def topology(start_from_rep):
         'route add -net 10.0.1.0 netmask 255.255.255.0 gw 10.0.0.5')
     uav_list[3].cmd(
         'route add -net 10.0.1.0 netmask 255.255.255.0 gw 10.0.0.5')
-    # uav_list[4] is the GATEWAY!!!
+    # --- uav_list[4] is the GATEWAY ---
+    # uav_list[4].cmd(
+    #     'route add -net 10.0.1.0 netmask 255.255.255.0 gw 10.0.0.5')
     uav_list[5].cmd(
         'route add -net 10.0.1.0 netmask 255.255.255.0 gw 10.0.0.5')
     uav_list[6].cmd(
@@ -281,11 +283,11 @@ def topology(start_from_rep):
         'route add -net 10.0.1.0 netmask 255.255.255.0 gw 10.0.0.5')
 
     # Starting Mobility
-    # net.startMobility(startTime=0, model='RandomWalk',
-    #                   max_x=200, max_y=200, min_v=0.1, max_v=0.2)
+    net.startMobility(startTime=0, model='RandomWalk',
+                      max_x=200, max_y=200, min_v=0.1, max_v=0.2)
 
     # Run FFServer on Stations
-    # runFFServer(uav_list[0])        # sta1
+    runFFServer(uav_list[0])          # sta1
     # runFFServer(uav_list[1])        # sta2
     # runFFServer(uav_list[2])        # sta3
     # runFFServer(uav_list[3])        # sta4
@@ -297,98 +299,24 @@ def topology(start_from_rep):
     # Wait for ffserver to initialize
     time.sleep(5)
 
-    # Iterate over all stream names
-    # for stream_name in EXP_STREAMS_LIST:
-    #     for repetition in range(start_from_rep, EXP_TIMES_TO_RUN):
+    print '**** Running Exp {0:d} of stream {1:s} scenario {2:s}'. \
+        format(run_number, stream_name, 'ONE')
 
-    #         print '**** Forcing Python Garbage Collection...'
-    #         gc.collect()
-
-    #         print '**** Associating UAV5 to Access Point'
-    #         uav_list[4].cmd('iwconfig sta5-wlan1 essid ssid_ap9')
-    #         print '**** Configuring the IP address for UAV Wireless interface'
-    #         uav_list[4].cmd('ifconfig sta5-wlan1 10.0.1.5/24')
-
-    #         # Run the experiments X times with one client (server on sta1)'
-    #         print '**** Running Exp {0:d} of stream {1:s} scenario {2:s}'. \
-    #             format(repetition, stream_name, 'ONE')
-    #         po_tunnel, po_terminal = runFFPlay(
-    #             h1, uav_list[0], stream_name, repetition, 'ONE')
-    #         print '**** Waiting for FFPlay...'
-    #         time.sleep(90)
-    #         try:
-    #             po_terminal.terminate()
-    #             po_tunnel.terminate()
-    #         except:
-    #             print '**** There are not xTerms to kill'
-    #         print '**** ...Done, next interation...'
-
-        # for repetition in range(EXP_TIMES_TO_RUN):
-        #     print '**** Running Exp {0:d} of stream {1:s} scenario ONE'. \
-        #         format(repetition, stream_name)
-        #     # Run the experiments X times with one client (server on sta9)
-        #     runFFPlay(h1, uav_list[4], stream_name, repetition, 'ONE')
-
-        # for repetition in range(EXP_TIMES_TO_RUN):
-        #     print '**** Running Exp {0:d} of stream {1:s} scenario ONE'. \
-        #         format(repetition, stream_name)
-        #     # Run the experiments X times with one client (server on sta9)
-        #     runFFPlay(h1, uav_list[8], stream_name, repetition, 'ONE')
-
-        # run video with TWO simulataneous clients
-        # for repetition in range(EXP_TIMES_TO_RUN):
-        #     print '**** Running Exp {0:d} of stream {1:s} scenario TWO'. \
-        #         format(repetition, stream_name)
-        #     ffplay_runners = []
-        #     ffplay_runners.append(threading.Timer(
-        #         (1.0), runFFPlay,
-        #         [h1, uav_list[0], stream_name, repetition, 'TWO']))
-        #     ffplay_runners.append(threading.Timer(
-        #         (1.0), runFFPlay,
-        #         [h1, uav_list[4], stream_name, repetition, 'TWO']))
-        #     # start FFPlay Runners
-        #     for play_thread in ffplay_runners:
-        #         print "**** Start thread *****"
-        #         play_thread.start()
-        #     # Join FFPlay Runners
-        #     for play_thread in ffplay_runners:
-        #         play_thread.join()
-        #     time.sleep(5 * 60)  # Waiting for the end of the movie...
-
-        # # run video with THREE simulataneous clients
-        # for repetition in range(EXP_TIMES_TO_RUN):
-        #     print '**** Running Exp {0:d} of stream {1:s} scenario THREE'. \
-        #         format(repetition, stream_name)
-        #     # run video with two simulataneous clients
-        #     ffplay_runners = []
-        #     ffplay_runners.append(threading.Timer(
-        #         (1.0), runFFPlay,
-        #         [h1, uav_list[0], stream_name, repetition, 'THREE']))
-        #     ffplay_runners.append(threading.Timer(
-        #         (1.0), runFFPlay,
-        #         [h1, uav_list[4], stream_name, repetition, 'THREE']))
-        #     ffplay_runners.append(threading.Timer(
-        #         (1.0), runFFPlay,
-        #         [h1, uav_list[8], stream_name, repetition, 'THREE']))
-        #     # start FFPlay Runners
-        #     for play_thread in ffplay_runners:
-        #         play_thread.start()
-        #     # Join FFPlay Runners
-        #     for play_thread in ffplay_runners:
-        #         play_thread.join()
-        #     time.sleep(5 * 60)  # Waiting for the end of the movie...
-
+    runFFPlay(h1, uav_list[0], stream_name, run_number, 'ONE')
+    print '**** Waiting for FFPlay...'
+    time.sleep(90)
     print '*** Running CLI'
-    CLI(net)
 
     print '*** Stopping network'
     net.stop()
 
 
+def get_args(args, arg_key=''):
+    return args[args.index(arg_key) + 1]
+
+
 if __name__ == '__main__':
     setLogLevel('info')
-    if len(sys.argv) > 1:
-        start_from_run = sys.argv[1]
-    else:
-        start_from_run = 0
-    topology(start_from_run)
+    stream = get_args(sys.argv, '-m')
+    run_number = int(get_args(sys.argv, '-n'))
+    topology(run_number, stream)
