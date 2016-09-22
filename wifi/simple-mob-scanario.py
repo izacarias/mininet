@@ -118,7 +118,7 @@ def runFFPlay(player_host, server_host, stream_name, exp_name):
     stream_url = 'http://{0:s}:{1:s}/{2:s}'.format(
         servers[server_host.name]['ip'], servers[server_host.name]['port'],
         stream_name)
-    logfile_name = 'log_{0:s}_{1:s}_rep{2:02d}_{3:s}.log'.format(
+    logfile_name = 'log_{0:s}_{1:s}_rep{2:s}_{3:s}.log'.format(
         server_host.name, stream_name, rep, exp_name)
     ffplayer_cmd = '{0:s} -autoexit {1:s} 2>&1 | tee {2:s}'.format(
         FFPLAY_BIN, stream_url, logfile_name)
@@ -209,13 +209,11 @@ def topology(run_number, stream_name):
         print '    - Adding UAV {0:s} to mesh network'.format(uav.name)
         net.addMesh(uav, ssid='meshNet')
 
-    # """uncomment to plot graph"""
-    net.plotGraph(max_x=200, max_y=200)
-
     print '*** Adding custom routing model to mesh...'
     net.meshRouting('custom')
 
-    net.seed(20)
+    # """uncomment to plot graph"""
+    # net.plotGraph(max_x=200, max_y=200)
 
     print '*** Starting network'
     net.build()
@@ -282,12 +280,13 @@ def topology(run_number, stream_name):
     uav_list[8].cmd(
         'route add -net 10.0.1.0 netmask 255.255.255.0 gw 10.0.0.5')
 
+    net.seed(20)
     # Starting Mobility
     net.startMobility(startTime=0, model='RandomWalk',
                       max_x=200, max_y=200, min_v=0.1, max_v=0.2)
 
     # Run FFServer on Stations
-    runFFServer(uav_list[0])          # sta1
+    p_tun, p_srv = runFFServer(uav_list[0])          # sta1
     # runFFServer(uav_list[1])        # sta2
     # runFFServer(uav_list[2])        # sta3
     # runFFServer(uav_list[3])        # sta4
@@ -302,10 +301,14 @@ def topology(run_number, stream_name):
     print '**** Running Exp {0:d} of stream {1:s} scenario {2:s}'. \
         format(run_number, stream_name, 'ONE')
 
-    runFFPlay(h1, uav_list[0], stream_name, run_number, 'ONE')
+    p1, p2 = runFFPlay(h1, uav_list[0], stream_name, 'ONE')
     print '**** Waiting for FFPlay...'
-    time.sleep(90)
-    print '*** Running CLI'
+
+    print p2.wait()
+
+    time.sleep(3)
+
+    p_srv.terminate()
 
     print '*** Stopping network'
     net.stop()

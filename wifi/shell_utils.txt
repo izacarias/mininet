@@ -5,3 +5,32 @@ sed 's#\r#\n#g' log_sta1_h264400_rep{00..29}_ONE.log | grep "UFRGS Metrics"
 
 
 ffplay -autoexit http://10.0.0.1:8001/h2642250 2>&1 | tee log_sta1_h2642250_rep00_ONE.log
+
+
+----------- Stream names --------------
+
+h2642250
+h2641000
+h264400
+
+
+----------- Running experiments on Mininet --------------
+
+for i in `seq 1 30`;
+do
+    sudo ./simple-mob-scanario.py -n 1 -m h264400
+    sudo mn -c
+done
+
+
+for i in `seq 1 30`;
+do
+    sudo ./simple-mob-scanario.py -n 1 -m h2641000
+    sudo mn -c
+done
+
+for i in `seq 1 30`;
+do
+    sudo ./simple-mob-scanario.py -n 1 -m h2642250
+    sudo mn -c
+done
