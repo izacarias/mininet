@@ -62,6 +62,10 @@ EXP_TIMES_TO_RUN = 30
 # EXP_STREAMS_LIST = ['h264400', 'h2641000', 'h2642250']
 EXP_STREAMS_LIST = ['h2641000']
 
+EXP_LOG_NAME = {1: 'ONE', 2: 'TWO', 3: 'THREE',
+                4: 'FOUR', 5: 'FIVE', 6: 'SIX',
+                7: 'SEVEN', 8: 'EIGHT', 9: 'NINE'}
+
 
 class OVSKernelSwitch13(OVSKernelSwitch):
     """
@@ -103,7 +107,7 @@ def runFFServer(server_host):
     return po_tunnel, po_terminal
 
 
-def runFFPlay(player_host, server_host, stream_name, exp_name):
+def runFFPlay(player_host, server_host, stream_name, exp_name, exp_timestr=''):
     """ List of ffservers """
     servers = {'sta1': {'ip': '10.0.0.1', 'port': '8001'},
                'sta2': {'ip': '10.0.0.2', 'port': '8002'},
@@ -114,13 +118,14 @@ def runFFPlay(player_host, server_host, stream_name, exp_name):
                'sta7': {'ip': '10.0.0.7', 'port': '8007'},
                'sta8': {'ip': '10.0.0.8', 'port': '8008'},
                'sta9': {'ip': '10.0.0.9', 'port': '8009'}}
-    rep = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    if exp_timestr == '':
+        exp_timestr = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
     stream_url = 'http://{0:s}:{1:s}/{2:s}'.format(
         servers[server_host.name]['ip'], servers[server_host.name]['port'],
         stream_name)
     logfile_name = 'log_{0:s}_{1:s}_rep{2:s}_{3:s}.log'.format(
-        server_host.name, stream_name, rep, exp_name)
-    ffplayer_cmd = '{0:s} -autoexit {1:s} 2>&1 | tee {2:s}'.format(
+        server_host.name, stream_name, exp_timestr, exp_name)
+    ffplayer_cmd = '{0:s} -autoexit -an -x 160 -y 90 {1:s} 2>&1 | tee {2:s}'.format(
         FFPLAY_BIN, stream_url, logfile_name)
     termTitle = 'FFPlayer from {0:s}'.format(server_host.name)
     # print '*** Starting client: ' + ffplayer_cmd
@@ -129,7 +134,7 @@ def runFFPlay(player_host, server_host, stream_name, exp_name):
     return po_tunnel, po_terminal
 
 
-def topology(run_number, stream_name):
+def topology(run_number, stream_name, nr_of_clients):
     """
       Creates the network elements in Mininet
     """
@@ -139,6 +144,11 @@ def topology(run_number, stream_name):
     # List of Switches and APs (Guaranis)
     sw_list = []
     ap_list = []
+
+    # list of running servers (Process ID -- POpen)
+    p_servers = []
+    p_players = []
+
     print "*** Creating a remote controller"
     c1 = RemoteController('c1', ip=OF_CONTROLLER_IP, port=OF_CONTROLLER_PORT)
 
@@ -286,29 +296,51 @@ def topology(run_number, stream_name):
                       max_x=200, max_y=200, min_v=0.1, max_v=0.2)
 
     # Run FFServer on Stations
-    p_tun, p_srv = runFFServer(uav_list[0])          # sta1
-    # runFFServer(uav_list[1])        # sta2
-    # runFFServer(uav_list[2])        # sta3
-    # runFFServer(uav_list[3])        # sta4
-    # runFFServer(uav_list[4])        # sta5
-    # runFFServer(uav_list[5])        # sta6
-    # runFFServer(uav_list[6])        # sta7
-    # runFFServer(uav_list[7])        # sta8
-    # runFFServer(uav_list[8])        # sta9
-    # Wait for ffserver to initialize
+    for n in range(nr_of_clients):
+        p_tun, p_srv = runFFServer(uav_list[n])
+        p_servers.append(n)
+        p_servers[n] = p_srv
+
+    # p_tun, p_srv = runFFServer(uav_list[0])       # sta1
+    # runFFServer(uav_list[1])                      # sta2
+    # runFFServer(uav_list[2])                      # sta3
+    # runFFServer(uav_list[3])                      # sta4
+    # runFFServer(uav_list[4])                      # sta5
+    # runFFServer(uav_list[5])                      # sta6
+    # runFFServer(uav_list[6])                      # sta7
+    # runFFServer(uav_list[7])                      # sta8
+    # runFFServer(uav_list[8])                      # sta9
+
+    # Wait for ffservers to initialize
     time.sleep(5)
 
     print '**** Running Exp {0:d} of stream {1:s} scenario {2:s}'. \
-        format(run_number, stream_name, 'ONE')
+        format(run_number, stream_name, EXP_LOG_NAME[nr_of_clients])
 
-    p1, p2 = runFFPlay(h1, uav_list[0], stream_name, 'ONE')
+    print '**** Running {0:d} clients...'.format(nr_of_clients)
+
+    # p1, p2 = runFFPlay(h1, uav_list[0], stream_name,
+    #                   EXP_LOG_NAME[nr_of_clients])
+    # get updated timestamp to name all logs
+    exp_timestr = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    for n in range(nr_of_clients):
+        p1, p2 = runFFPlay(h1, uav_list[n], stream_name,
+                           EXP_LOG_NAME[nr_of_clients], exp_timestr)
+        p_players.append(n)
+        p_players[n] = p2
+
     print '**** Waiting for FFPlay...'
+    # print p2.wait()
+    for p2 in p_players:
+        p2.wait()
 
-    print p2.wait()
-
+    # Wait for clients to exit
     time.sleep(3)
 
-    p_srv.terminate()
+    # Stop all servers
+    # p_srv.terminate()
+    for p_srv in p_servers:
+        p_srv.terminate()
 
     print '*** Stopping network'
     net.stop()
@@ -322,4 +354,5 @@ if __name__ == '__main__':
     setLogLevel('info')
     stream = get_args(sys.argv, '-m')
     run_number = int(get_args(sys.argv, '-n'))
-    topology(run_number, stream)
+    nr_of_clients = int(get_args(sys.argv, '-c'))
+    topology(run_number, stream, nr_of_clients)
