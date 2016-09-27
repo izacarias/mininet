@@ -6,6 +6,8 @@ sed 's#\r#\n#g' log_sta1_h264400_rep{00..29}_ONE.log | grep "UFRGS Metrics"
 
 ffplay -autoexit http://10.0.0.1:8001/h2642250 2>&1 | tee log_sta1_h2642250_rep00_ONE.log
 
+find . -name "*h2642250_rep2016*" -exec sed 's#\r#\n#g' {} \; | grep "UFRGS Metrics" | sed 's/UFRGS Metrics: init_time=//; s/ stall_count=//; s/ stall_time=//; s/\./,/g'
+
 
 ----------- Stream names --------------
 
