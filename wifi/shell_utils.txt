@@ -6,7 +6,25 @@ sed 's#\r#\n#g' log_sta1_h264400_rep{00..29}_ONE.log | grep "UFRGS Metrics"
 
 ffplay -autoexit http://10.0.0.1:8001/h2642250 2>&1 | tee log_sta1_h2642250_rep00_ONE.log
 
-find . -name "*h2642250_rep2016*" -exec sed 's#\r#\n#g' {} \; | grep "UFRGS Metrics" | sed 's/UFRGS Metrics: init_time=//; s/ stall_count=//; s/ stall_time=//; s/\./,/g'
+echo "============= STA1 ============="
+find . -name "log_sta1_h2642250_rep2016*" -exec sed 's#\r#\n#g' {} \; | grep "UFRGS Metrics" | sed 's/UFRGS Metrics: init_time=//; s/ stall_count=//; s/ stall_time=//; s/\./,/g'
+echo "============= STA2 ============="
+find . -name "log_sta2_h2642250_rep2016*" -exec sed 's#\r#\n#g' {} \; | grep "UFRGS Metrics" | sed 's/UFRGS Metrics: init_time=//; s/ stall_count=//; s/ stall_time=//; s/\./,/g'
+echo "============= STA3 ============="
+find . -name "log_sta3_h2642250_rep2016*" -exec sed 's#\r#\n#g' {} \; | grep "UFRGS Metrics" | sed 's/UFRGS Metrics: init_time=//; s/ stall_count=//; s/ stall_time=//; s/\./,/g'
+echo "============= STA4 ============="
+find . -name "log_sta4_h2642250_rep2016*" -exec sed 's#\r#\n#g' {} \; | grep "UFRGS Metrics" | sed 's/UFRGS Metrics: init_time=//; s/ stall_count=//; s/ stall_time=//; s/\./,/g'
+echo "============= STA5 ============="
+find . -name "log_sta5_h2642250_rep2016*" -exec sed 's#\r#\n#g' {} \; | grep "UFRGS Metrics" | sed 's/UFRGS Metrics: init_time=//; s/ stall_count=//; s/ stall_time=//; s/\./,/g'
+echo "============= STA6 ============="
+find . -name "log_sta6_h2642250_rep2016*" -exec sed 's#\r#\n#g' {} \; | grep "UFRGS Metrics" | sed 's/UFRGS Metrics: init_time=//; s/ stall_count=//; s/ stall_time=//; s/\./,/g'
+echo "============= STA7 ============="
+find . -name "log_sta7_h2642250_rep2016*" -exec sed 's#\r#\n#g' {} \; | grep "UFRGS Metrics" | sed 's/UFRGS Metrics: init_time=//; s/ stall_count=//; s/ stall_time=//; s/\./,/g'
+echo "============= STA8 ============="
+find . -name "log_sta8_h2642250_rep2016*" -exec sed 's#\r#\n#g' {} \; | grep "UFRGS Metrics" | sed 's/UFRGS Metrics: init_time=//; s/ stall_count=//; s/ stall_time=//; s/\./,/g'
+echo "============= STA9 ============="
+find . -name "log_sta9_h2642250_rep2016*" -exec sed 's#\r#\n#g' {} \; | grep "UFRGS Metrics" | sed 's/UFRGS Metrics: init_time=//; s/ stall_count=//; s/ stall_time=//; s/\./,/g'
+
 
 
 ----------- Stream names --------------
