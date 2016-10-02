@@ -175,7 +175,7 @@ def topology(run_number, stream_name, nr_of_clients):
         uav_list.append(net.addStation(sta_name, mac=sta_mac, ip=sta_ip,
                                        min_x=uav_min_x, max_x=uav_max_x,
                                        min_y=uav_min_y, max_y=uav_max_y,
-                                       wlans=2, position=uav_position))
+                                       wlans=2))
 
     print "*** Creating static Guaranis (Switch + AP)"
     for i in xrange(1, CONF_GUARANI_NUMBER + 1):
@@ -312,7 +312,8 @@ def topology(run_number, stream_name, nr_of_clients):
     # runFFServer(uav_list[8])                      # sta9
 
     # Wait for ffservers to initialize
-    time.sleep(5)
+    # and stations to go to initial position
+    time.sleep(8)
 
     print '**** Running Exp {0:d} of stream {1:s} scenario {2:s}'. \
         format(run_number, stream_name, EXP_LOG_NAME[nr_of_clients])
