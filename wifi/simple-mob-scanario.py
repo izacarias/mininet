@@ -166,8 +166,8 @@ def topology(run_number, stream_name, nr_of_clients):
         sta_name = 'sta{0:d}'.format(i + 1)
         sta_ip = '10.0.0.{0:d}/24'.format(i + 1)
         # node position
-        uav_position = '{0:d},{1:d},0'.format(
-            uav_get_xbase(i + 1), uav_get_ybase() - 10)
+        # uav_position = '{0:d},{1:d},0'.format(
+        #     uav_get_xbase(i + 1), uav_get_ybase() - 10)
         uav_min_x = uav_get_xbase(i + 1) - POS_UAV_MOTION
         uav_max_x = uav_get_xbase(i + 1) + POS_UAV_MOTION
         uav_min_y = uav_get_ybase() - POS_UAV_MOTION
