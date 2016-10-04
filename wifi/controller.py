@@ -22,14 +22,10 @@ from ryu.lib.packet import ethernet
 from ryu.lib.packet import ether_types
 # Used for topology discover
 from ryu.topology import event
-from ryu.topology.api import get_host
-from ryu.topology.api import get_link
-from ryu.topology.api import get_switch
 # NetworkX for Graphs
 import networkx as nx
 # Python Standard Library (Python STL)
 # import copy
-from pprint import pprint
 import logging
 
 
@@ -146,7 +142,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                        if src == dpid and attrib['port'] == port_no][0]
             except IndexError:
                 mac = ''
-                self.logger.info('There is not any known host')
+                self.logger.warning('There is not any known host to delete.')
             # Deleting Flows from switches
             if mac:
                 for switch in self.switches:
@@ -166,7 +162,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         # If you hit this you might want to increase
         # the "miss_send_length" of your switch
         if ev.msg.msg_len < ev.msg.total_len:
-            self.logger.debug("Packet truncated: only %s of %s bytes",
+            self.logger.warning("Packet truncated: only %s of %s bytes",
                               ev.msg.msg_len, ev.msg.total_len)
 
         # event data
@@ -189,7 +185,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         dpid = datapath.id
 
         # Logging Packet in event
-        self.logger.info("Packet in %s %s %s %s", dpid, src, dst, in_port)
+        self.logger.debug("Packet in %s %s %s %s", dpid, src, dst, in_port)
 
         # learn a mac address to avoid FLOOD next time.
         if src not in self.net:
@@ -211,7 +207,7 @@ class SimpleSwitch13(app_manager.RyuApp):
                 # self.dst_paths[dst] = path
             except Exception as e:
                 self.logger.info(e)
-                # there isn't a path, nothing to do
+                self.logger.error("There is not a path in NetworkX Graph")
                 return
             # make a path flow to packet
             next_switch = path[path.index(dpid) + 1]
