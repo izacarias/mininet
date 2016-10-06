@@ -296,20 +296,11 @@ def topology(run_number, stream_name, nr_of_clients):
                       max_x=200, max_y=200, min_v=0.1, max_v=0.2)
 
     # Run FFServer on Stations
-    for n in range(nr_of_clients):
-        p_tun, p_srv = runFFServer(uav_list[n])
+    # Running all servers to select a random source
+    for n in range(CONF_UAV_NUMBER):
+        p_tun, p_srv = runFFServer(uav_list[n])     # p_tun not used
         p_servers.append(n)
         p_servers[n] = p_srv
-
-    # p_tun, p_srv = runFFServer(uav_list[0])       # sta1
-    # runFFServer(uav_list[1])                      # sta2
-    # runFFServer(uav_list[2])                      # sta3
-    # runFFServer(uav_list[3])                      # sta4
-    # runFFServer(uav_list[4])                      # sta5
-    # runFFServer(uav_list[5])                      # sta6
-    # runFFServer(uav_list[6])                      # sta7
-    # runFFServer(uav_list[7])                      # sta8
-    # runFFServer(uav_list[8])                      # sta9
 
     # Wait for ffservers to initialize
     # and stations to go to initial position
