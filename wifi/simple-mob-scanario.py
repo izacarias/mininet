@@ -3,6 +3,7 @@ import os
 import sys
 import time
 import datetime
+import random
 
 from mininet.net import Mininet
 from mininet.node import RemoteController, OVSKernelSwitch, UserSwitch
@@ -125,8 +126,8 @@ def runFFPlay(player_host, server_host, stream_name, exp_name, exp_timestr=''):
         stream_name)
     logfile_name = 'log_{0:s}_{1:s}_rep{2:s}_{3:s}.log'.format(
         server_host.name, stream_name, exp_timestr, exp_name)
-    ffplayer_cmd = '{0:s} -autoexit -an -x 160 -y 90 {1:s} 2>&1 | tee {2:s}'.format(
-        FFPLAY_BIN, stream_url, logfile_name)
+    ffplayer_cmd = '{0:s} -autoexit -an -x 160 -y 90 {1:s} 2>&1 | tee {2:s}' \
+        .format(FFPLAY_BIN, stream_url, logfile_name)
     termTitle = 'FFPlayer from {0:s}'.format(server_host.name)
     # print '*** Starting client: ' + ffplayer_cmd
     po_tunnel, po_terminal = makeTerm(
@@ -296,20 +297,11 @@ def topology(run_number, stream_name, nr_of_clients):
                       max_x=200, max_y=200, min_v=0.1, max_v=0.2)
 
     # Run FFServer on Stations
-    for n in range(nr_of_clients):
-        p_tun, p_srv = runFFServer(uav_list[n])
+    # Running all servers to select a random source
+    for n in range(CONF_UAV_NUMBER):
+        p_tun, p_srv = runFFServer(uav_list[n])     # p_tun not used
         p_servers.append(n)
         p_servers[n] = p_srv
-
-    # p_tun, p_srv = runFFServer(uav_list[0])       # sta1
-    # runFFServer(uav_list[1])                      # sta2
-    # runFFServer(uav_list[2])                      # sta3
-    # runFFServer(uav_list[3])                      # sta4
-    # runFFServer(uav_list[4])                      # sta5
-    # runFFServer(uav_list[5])                      # sta6
-    # runFFServer(uav_list[6])                      # sta7
-    # runFFServer(uav_list[7])                      # sta8
-    # runFFServer(uav_list[8])                      # sta9
 
     # Wait for ffservers to initialize
     # and stations to go to initial position
@@ -320,12 +312,15 @@ def topology(run_number, stream_name, nr_of_clients):
 
     print '**** Running {0:d} clients...'.format(nr_of_clients)
 
-    # p1, p2 = runFFPlay(h1, uav_list[0], stream_name,
-    #                   EXP_LOG_NAME[nr_of_clients])
     # get updated timestamp to name all logs
     exp_timestr = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+
+    # create a random list of UAVs
+    selected_uavs_list = random.sample(xrange(CONF_UAV_NUMBER), nr_of_clients)
+
     for n in range(nr_of_clients):
-        p1, p2 = runFFPlay(h1, uav_list[n], stream_name,
+        selected_uav = selected_uavs_list[n]
+        p1, p2 = runFFPlay(h1, uav_list[selected_uav], stream_name,
                            EXP_LOG_NAME[nr_of_clients], exp_timestr)
         p_players.append(n)
         p_players[n] = p2

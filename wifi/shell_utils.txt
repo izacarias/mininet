@@ -54,3 +54,7 @@ do
     sudo ./simple-mob-scanario.py -n 1 -m h2642250
     sudo mn -c
 done
+
+
+----------- Kill all mininet instances --------------
+sudo kill $(ps axu | grep "sudo ./simple-mob-scanario.py" | grep "root" | awk '{print $2}')

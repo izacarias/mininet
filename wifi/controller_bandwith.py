@@ -48,7 +48,6 @@ class SimpleMonitor13(SimpleSwitch13):
         # graph options
         self.xdata = []
         self.ydata = []
-        plt.show()
         self.axes = plt.gca()
         self.axes.set_xlim(0, GRAPH_XLIMIT)
         self.axes.set_ylim(0, GRAPH_YLIMIT)
@@ -56,7 +55,6 @@ class SimpleMonitor13(SimpleSwitch13):
         self.axes.set_ylabel = GRAPH_YLABEL
         self.line, = self.axes.plot(self.xdata, self.ydata, 'r-')
         self.graph_time_step = 0
-        self.exiting = False
 
     @set_ev_cls(ofp_event.EventOFPStateChange,
                 [MAIN_DISPATCHER, DEAD_DISPATCHER])
@@ -67,9 +65,6 @@ class SimpleMonitor13(SimpleSwitch13):
                 self.logger.debug('Register datapath: %016x', datapath.id)
                 self.datapaths[datapath.id] = datapath
         elif ev.state == DEAD_DISPATCHER:
-            if self.exiting is False:
-                self.exiting = True
-                plt.show()
             if datapath.id in self.datapaths:
                 self.logger.debug('Unregister datapath: %016x', datapath.id)
                 del self.datapaths[datapath.id]
@@ -86,31 +81,31 @@ class SimpleMonitor13(SimpleSwitch13):
         ofproto = datapath.ofproto
         parser = datapath.ofproto_parser
         # Requesting Flow Stats
-        # req = parser.OFPFlowStatsRequest(datapath)
-        # datapath.send_msg(req)
+        req = parser.OFPFlowStatsRequest(datapath)
+        datapath.send_msg(req)
         # Requesting Port Stats
         req = parser.OFPPortStatsRequest(datapath, 0, ofproto.OFPP_ANY)
         datapath.send_msg(req)
 
     @set_ev_cls(ofp_event.EventOFPFlowStatsReply, MAIN_DISPATCHER)
     def flow_stats_reply_handler(self, ev):
-        # """ Handler for Flow Stats request """
-        # body = ev.msg.body
+        """ Handler for Flow Stats request """
+        body = ev.msg.body
         # self.logger.info('datapath         '
         #                  'in-port  eth-dst           '
         #                  'out-port packets  bytes')
         # self.logger.info('---------------- '
         #                  '-------- ----------------- '
         #                  '-------- -------- --------')
-        # for stat in sorted([flow for flow in body if flow.priority == 1],
-        #                    key=lambda flow: (flow.match['in_port'],
-        #                                      flow.match['eth_dst'])):
-        #     self.logger.info('%016x %8x %17s %8x %8d %8d',
-        #                      ev.msg.datapath.id,
-        #                      stat.match['in_port'], stat.match['eth_dst'],
-        #                      stat.instructions[0].actions[0].port,
-        #                      stat.packet_count, stat.byte_count)
-        pass
+        for stat in sorted([flow for flow in body if flow.priority == 1],
+                           key=lambda flow: (flow.match['in_port'],
+                                             flow.match['eth_dst'])):
+            # self.logger.info('%016x %8x %17s %8x %8d %8d',
+            #                  ev.msg.datapath.id,
+            #                  stat.match['in_port'], stat.match['eth_dst'],
+            #                  stat.instructions[0].actions[0].port,
+            #                  stat.packet_count, stat.byte_count)
+            pass
 
     @set_ev_cls(ofp_event.EventOFPPortStatsReply, MAIN_DISPATCHER)
     def port_stats_reply_handler(self, ev):
