@@ -105,7 +105,7 @@ def print_data(exp_array):
     #         print exp_date_name
     #         print exp_date_values
     experiments_s = sorted(experiments_a, key=lambda row: (
-        row[1], row[2], row[3], row[4]))
+        row[0], row[1], row[2], row[3]))
     exp_name = ''
     exp_time = ''
     for exp_data in experiments_s:
