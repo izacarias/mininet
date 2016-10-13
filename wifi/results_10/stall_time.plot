@@ -13,8 +13,7 @@
 GNUTERM = "qt"
 # set terminal qt 0 size 500, 300 enhanced font "Verdana,10" persist
 set terminal pdfcairo color enhanced
-set style line 1  linecolor rgb "#0060ad"  linewidth 1.500 dashtype solid pointtype 7 pointsize 1.100 pointinterval 0
-set style line 2  linecolor rgb "#333333"  linewidth 1.500 dashtype solid pointtype 7 pointsize default pointinterval 0
+set style line 1  linecolor rgb "#0060ad"  linewidth 1.500 dashtype solid pointtype 7 pointsize 0.55 pointinterval 0
 set title  font "sans bold,16"
 set xlabel  font "sans,12"
 set ylabel  font "sans,12"
