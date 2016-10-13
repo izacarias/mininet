@@ -110,7 +110,8 @@ def print_data(exp_array):
     exp_time = ''
     for exp_data in experiments_s:
         if exp_name != exp_data[0]:
-            print ('\n**************************************************')
+            print ("\n")
+            print ('**************************************************')
             print ('{0:s}'.format(exp_data[0]))
             print ('**************************************************')
             exp_name = exp_data[0]
