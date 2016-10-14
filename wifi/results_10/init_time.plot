@@ -25,7 +25,7 @@ unset logscale
 unset contour
 unset key
 set output "init_time_graph.pdf"
-# set title "Video Startup Time" 
+# set title "Playback Start Time" 
 set title
 set xlabel "Simultaneous video streams being served" 
 set ylabel "Video startup time (ms)" 
