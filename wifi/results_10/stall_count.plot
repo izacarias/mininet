@@ -13,8 +13,10 @@
 GNUTERM = "qt"
 # set terminal qt 0 size 500, 300 enhanced font "serif,10" persist
 set terminal pdfcairo enhanced mono size 3.5in, 2.62in font "serif, 10"
-set style line 1 linecolor rgb "#0060ad" linewidth 1.500 dashtype solid pointtype 7 pointsize 0.55 pointinterval 0
-set style line 2 linecolor rgb "#0060ad" linewidth 0.500 dashtype solid pointtype 7 pointsize 0.55 pointinterval 0
+set style line 1 linecolor rgb "#252525" linewidth 0.500 dashtype solid pointtype 7 pointsize 0
+set style line 2 linecolor rgb "#252525" linewidth 0.500 dashtype solid pointtype 7 pointsize 0
+set style fill solid 0.25 border rgb "#2525252"
+set boxwidth 0.85 relative
 set xlabel  font "serif,12"
 set ylabel  font "serif,12"
 set xtics nomirror
@@ -29,7 +31,7 @@ set output "stall_count_graph.pdf"
 set title
 set xlabel "Simultaneous video streams being served"
 set ylabel "Number of video stalls"  
-set xrange [ 0.750000 : 9.25000 ]
+set xrange [ 0.300000 : 9.700000 ] noreverse nowriteback
 set yrange [ 0 : 60 ]
-plot "gnuplot.txt" using 1:4:5 w yerrorbars ls 2, '' using 1:4 w lines ls 1
+plot "gnuplot.txt" using 1:4 w boxes ls 1, "" using 1:4:5 w yerrorbars ls 2
 # EOF
