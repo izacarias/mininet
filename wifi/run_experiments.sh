@@ -20,24 +20,24 @@
 #     lsof -i tcp:6633 | awk 'NR!=1 {print $2}' | xargs kill
 # done
 
-for i in `seq 1 1`;
-do
-
-    echo "============================================================================="
-    source `which virtualenvwrapper.sh`
-    workon ryu
-    (ryu-manager --observe-links /home/iulisloi/devel/mininet/wifi/controller.py & CONTROLLER_PID=$!)
-    sleep 3
-    
-    echo "Running remote experiment on ACDC"
-    ssh -X -p54322 mininet@acdc.inf.ufrgs.br "sudo mn -c && sudo ./simple-mob-scanario.py -n 1 -m h2642250 -c 8"
-    echo "Remote experiment DONE!"
-
-    echo "Killing the local controller"
-    lsof -i tcp:6633 | awk 'NR!=1 {print $2}' | xargs kill
-done
-
 # for i in `seq 1 1`;
+# do
+
+#     echo "============================================================================="
+#     source `which virtualenvwrapper.sh`
+#     workon ryu
+#     (ryu-manager --observe-links /home/iulisloi/devel/mininet/wifi/controller.py & CONTROLLER_PID=$!)
+#     sleep 3
+    
+#     echo "Running remote experiment on ACDC"
+#     ssh -X -p54322 mininet@acdc.inf.ufrgs.br "sudo mn -c && sudo ./simple-mob-scanario.py -n 1 -m h2642250 -c 8"
+#     echo "Remote experiment DONE!"
+
+#     echo "Killing the local controller"
+#     lsof -i tcp:6633 | awk 'NR!=1 {print $2}' | xargs kill
+# done
+
+# for i in `seq 1 30`;
 # do
 
 #     echo "============================================================================="
@@ -54,7 +54,7 @@ done
 #     lsof -i tcp:6633 | awk 'NR!=1 {print $2}' | xargs kill
 # done
 
-# for i in `seq 1 10`;
+# for i in `seq 1 20`;
 # do
 
 #     echo "============================================================================="
@@ -71,7 +71,7 @@ done
 #     lsof -i tcp:6633 | awk 'NR!=1 {print $2}' | xargs kill
 # done
 
-# for i in `seq 1 10`;
+# for i in `seq 1 20`;
 # do
 
 #     echo "============================================================================="
@@ -88,7 +88,7 @@ done
 #     lsof -i tcp:6633 | awk 'NR!=1 {print $2}' | xargs kill
 # done
 
-# for i in `seq 1 10`;
+# for i in `seq 1 20`;
 # do
 
 #     echo "============================================================================="
@@ -105,7 +105,7 @@ done
 #     lsof -i tcp:6633 | awk 'NR!=1 {print $2}' | xargs kill
 # done
 
-# for i in `seq 1 10`;
+# for i in `seq 1 20`;
 # do
 
 #     echo "============================================================================="
@@ -122,7 +122,7 @@ done
 #     lsof -i tcp:6633 | awk 'NR!=1 {print $2}' | xargs kill
 # done
 
-# for i in `seq 1 10`;
+# for i in `seq 1 20`;
 # do
 
 #     echo "============================================================================="
@@ -139,19 +139,19 @@ done
 #     lsof -i tcp:6633 | awk 'NR!=1 {print $2}' | xargs kill
 # done
 
-# for i in `seq 1 10`;
-# do
+for i in `seq 1 2`;
+do
 
-#     echo "============================================================================="
-#     source `which virtualenvwrapper.sh`
-#     workon ryu
-#     (ryu-manager --observe-links /home/iulisloi/devel/mininet/wifi/controller.py & CONTROLLER_PID=$!)
-#     sleep 3
+    echo "============================================================================="
+    source `which virtualenvwrapper.sh`
+    workon ryu
+    (ryu-manager --observe-links /home/iulisloi/devel/mininet/wifi/controller.py & CONTROLLER_PID=$!)
+    sleep 3
     
-#     echo "Running remote experiment on ACDC"
-#     ssh -X -p54322 mininet@acdc.inf.ufrgs.br "sudo mn -c && sudo ./simple-mob-scanario.py -n 1 -m h2642250 -c 1"
-#     echo "Remote experiment DONE!"
+    echo "Running remote experiment on ACDC"
+    ssh -X -p54322 mininet@acdc.inf.ufrgs.br "sudo mn -c && sudo ./simple-mob-scanario.py -n 1 -m h2642250 -c 1"
+    echo "Remote experiment DONE!"
 
-#     echo "Killing the local controller"
-#     lsof -i tcp:6633 | awk 'NR!=1 {print $2}' | xargs kill
-# done
+    echo "Killing the local controller"
+    lsof -i tcp:6633 | awk 'NR!=1 {print $2}' | xargs kill
+done
