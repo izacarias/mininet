@@ -12,13 +12,13 @@
 #    	immediate help:   type "help"  (plot window: hit 'h')
 GNUTERM = "qt"
 # set terminal qt 0 size 500, 300 enhanced font "serif,10" persist
-set terminal pdfcairo enhanced mono size 3.5in, 2.5in font "serif, 10"
+set terminal pdfcairo enhanced mono size 3.5in, 2.62in font "Times,10"
 set style line 1 linecolor rgb "#252525" linewidth 0.500 dashtype solid pointtype 7 pointsize 0
 set style line 2 linecolor rgb "#252525" linewidth 0.500 dashtype solid pointtype 7 pointsize 0
 set style fill solid 0.25 border rgb "#2525252"
 set boxwidth 0.85 relative
-set xlabel  font "serif,12"
-set ylabel  font "serif,12"
+set xlabel font "Times,12"
+set ylabel font "Times,12"
 set xtics nomirror
 set ytics nomirror
 set border 3
