@@ -293,7 +293,7 @@ def topology(run_number, stream_name, nr_of_clients):
 
     net.seed(20)
     # Starting Mobility
-    net.startMobility(startTime=0, model='RandomWalk',
+    net.startMobility(startTime=0, model='RandomWayPoint',
                       max_x=200, max_y=200, min_v=0.1, max_v=0.2)
 
     # Run FFServer on Stations
