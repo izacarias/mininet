@@ -34,4 +34,8 @@ set ylabel "Number of video stalls"
 set xrange [ 0.300000 : 9.700000 ] noreverse nowriteback
 set yrange [ 0 : 60 ]
 plot "gnuplot.txt" using 1:4 w boxes ls 1, "" using 1:4:5 w yerrorbars ls 2
+# plot "gnuplot.txt" using ($0-0.15):6:(0.3) w boxes ls 1, \
+#                 "" using ($0-0.15):6:7 w yerrorbars ls 2, \
+#                 "" using ($0+0.15):2:(0.3) w boxes ls 2, \
+#                 "" using ($0+0.15):2:3 w yerrorbars ls 2
 # EOF
