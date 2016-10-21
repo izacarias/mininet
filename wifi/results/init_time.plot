@@ -15,7 +15,7 @@ GNUTERM = "qt"
 set terminal pdfcairo enhanced mono size 3.5in, 2.62in font "Times,10"
 set style line 1 linecolor rgb "#252525" linewidth 0.500 dashtype solid pointtype 7 pointsize 0
 set style line 2 linecolor rgb "#252525" linewidth 0.500 dashtype solid pointtype 7 pointsize 0
-set style fill solid 0.25 border rgb "#2525252"
+set style fill solid 0.25 noborder
 set boxwidth 0.85 relative
 set xlabel font "Times,12"
 set ylabel font "Times,12"
