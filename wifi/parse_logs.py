@@ -12,7 +12,7 @@ experiments_a = []
 
 def list_directories():
     # list all files in directories
-    for root, dirs, files in os.walk("./results_10"):
+    for root, dirs, files in os.walk("./results_rwp"):
         for file in files:
             if file.endswith(".log"):
                 files_in_dir.append(os.path.join(root, file))
