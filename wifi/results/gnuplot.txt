@@ -1,5 +1,5 @@
-#   Number or UAVs Initialization time Number of stalls        Stall time  
-#   Avg     Std error   Avg     Std error   Avg     Std error
+#UAVs | Initialization time | Number of stalls  	| Stall time  
+#   Avg     	Std error   Avg     	Std error   Avg     Std error
 1   1057,654543 84,993820   0,000000    0,000000    0,000000    0,000000
 2   1064,572559 51,060598   0,000000    0,000000    0,000000    0,000000
 3   1031,305942 39,732633   0,066667    0,000000    3,277856    0,000000
