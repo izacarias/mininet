@@ -25,7 +25,7 @@ set border 3
 set grid x y
 unset logscale
 unset contour
-set key # at 4.7,87 Left
+set key # at 6,5 Left
 set output "mos_graph.pdf"
 # set title "Number of Video Stalls"
 set title

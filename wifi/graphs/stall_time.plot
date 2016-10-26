@@ -25,14 +25,14 @@ set border 3
 set grid x y
 unset logscale
 unset contour
-set key at 5,15250 Left
+set key at 5,12000 Left
 set output "stall_time_graph.pdf"
 # set title "Video Stall Time" 
 set title
 set xlabel "Simultaneous video streams being served"
 set ylabel "Video stall lenght (ms)"  
 set xrange [ 0.300000 : 9.700000 ] noreverse nowriteback
-set yrange [ 0 : 16000 ] noreverse nowriteback
+set yrange [ 0 : 12000 ] noreverse nowriteback
 plot "gnuplot.txt" i 0 using ($1-0.15):6:(0.3) w boxes ls 1 t "Random Walk", \
      ""            i 0 using ($1-.15):6:7 w yerrorbars ls 3 t "", \
      ""            i 1 using ($0+1.15):6:(0.3) w boxes ls 2 t "Random Way Point", \
