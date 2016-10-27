@@ -40,7 +40,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.net = nx.DiGraph()
         self.stp = nx.Graph()
         # Set Log Level
-        self.logger.setLevel(logging.DEBUG)
+        self.logger.setLevel(logging.INFO)
 
     # Utility function: lists all attributes in in object
     def ls(self, obj):
@@ -163,7 +163,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         # the "miss_send_length" of your switch
         if ev.msg.msg_len < ev.msg.total_len:
             self.logger.warning("Packet truncated: only %s of %s bytes",
-                              ev.msg.msg_len, ev.msg.total_len)
+                                 ev.msg.msg_len, ev.msg.total_len)
 
         # event data
         msg = ev.msg
@@ -190,7 +190,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         # learn a mac address to avoid FLOOD next time.
         if src not in self.net:
             # make sure it's a host address
-            if "00:00:00" in src:
+            if "33:33:33" in src:
                 self.net.add_node(src, n_type='host')
                 self.net.add_edge(src, dpid, {'port': in_port})
                 self.net.add_edge(dpid, src, {'port': in_port})
