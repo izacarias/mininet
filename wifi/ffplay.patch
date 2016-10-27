@@ -1,0 +1,123 @@
+diff --git a/ffplay.c b/ffplay.c
+index 6d43191..1818a41 100644
+--- a/ffplay.c
++++ b/ffplay.c
+@@ -30,6 +30,9 @@
+ #include <signal.h>
+ #include <stdint.h>
+ 
++/* Video Metrics / INF / UFRGS / Iulisloi Zacarias */
++#include <time.h>
++
+ #include "libavutil/avstring.h"
+ #include "libavutil/eval.h"
+ #include "libavutil/mathematics.h"
+@@ -361,6 +364,17 @@ static AVPacket flush_pkt;
+ static SDL_Window *window;
+ static SDL_Renderer *renderer;
+ 
++/* Video Metrics / INF / UFRGS / Iulisloi Zacarias */
++static int vstall_stalled = 0;
++static clock_t vstall_start_time = 0;
++static clock_t vstall_end_time = 0;
++static int vstall_count = 0;
++static float vstall_total_time = 0;
++
++static int vinit_initializing = 1;
++static clock_t vinit_start_time = 0;
++static float vinit_total_time = 0;
++
+ #if CONFIG_AVFILTER
+ static int opt_add_vfilter(void *optctx, const char *opt, const char *arg)
+ {
+@@ -1233,6 +1247,9 @@ static void do_exit(VideoState *is)
+     if (show_status)
+         printf("\n");
+     SDL_Quit();
++    av_log(NULL, AV_LOG_INFO, 
++           "UFRGS Metrics: init_time=%f; stall_count=%d; stall_time=%f \n",
++           vinit_total_time, vstall_count, vstall_total_time);
+     av_log(NULL, AV_LOG_QUIET, "%s", "");
+     exit(0);
+ }
+@@ -1532,10 +1549,49 @@ static void video_refresh(void *opaque, double *remaining_time)
+ retry:
+         if (frame_queue_nb_remaining(&is->pictq) == 0) {
+             // nothing to do, no picture to display in the queue
++
++            /* Video Metrics / INF / UFRGS / Iulisloi Zacarias */
++            /* if there is no frame to display, the video is stalled */
++
++            /* Only count stall if not already stalled, not initializing and time is grather than 0 */
++            if (!vstall_stalled && !vinit_initializing && (get_master_clock(is) > 0.0)) {
++                vstall_stalled = 1;
++                vstall_count = vstall_count + 1;
++                vstall_start_time = clock();
++                av_log(NULL, AV_LOG_INFO, "UFRGS: Video stalled! No frames in queue. \n");
++            }
++
+         } else {
+             double last_duration, duration, delay;
+             Frame *vp, *lastvp;
+ 
++            /* Video Metrics / INF / UFRGS / Iulisloi Zacarias */
++            if (vinit_initializing)
++            {
++                /* Video still initializing, do not count stalls! */
++                /* If video current time if not "0", it is already initialized */
++                if (get_master_clock(is) > 0.0){
++                    /* Getting the start time of stream AppQoE */
++                    vinit_initializing = 0;
++                    clock_t vinit_current_time = clock();
++                    vinit_total_time = 
++                        ((float)(vinit_current_time - vinit_start_time) / 1000000.0F ) * 1000;
++                    av_log(NULL, AV_LOG_INFO, "UFRGS: Video initialized! Init_time=%f \n", vinit_total_time);
++                }
++            } else {
++                /* Video already initialized, count the number or stalls
++                /* Getting information about stalls and stall time */
++                if (vstall_stalled && !vinit_initializing){
++                    vstall_stalled = 0;
++                    vstall_end_time = clock();
++                    float vstall_time_stalled = 
++                          ((float)(vstall_end_time - vstall_start_time) / 1000000.0F ) * 1000;
++                    vstall_total_time = vstall_total_time + vstall_time_stalled;
++                    av_log(NULL, AV_LOG_INFO, "UFRGS: Recover from stall!. Stall_time=%f Stall_count=%d \n", 
++                           vstall_time_stalled, vstall_count);
++                }
++            }
++
+             /* dequeue the picture */
+             lastvp = frame_queue_peek_last(&is->pictq);
+             vp = frame_queue_peek(&is->pictq);
+@@ -1665,6 +1721,8 @@ display:
+             last_time = cur_time;
+         }
+     }
++    if (get_master_clock(is) >= 60)
++        do_exit(is);
+ }
+ 
+ /* allocate a picture (needs to do that in main thread to avoid
+@@ -3255,6 +3313,9 @@ static void event_loop(VideoState *cur_stream)
+     SDL_Event event;
+     double incr, pos, frac;
+ 
++    /* Video Metrics / INF / UFRGS / Iulisloi Zacarias */
++    vinit_start_time = clock();
++
+     for (;;) {
+         double x;
+         refresh_loop_wait_event(cur_stream, &event);
+@@ -3697,6 +3758,11 @@ int main(int argc, char **argv)
+     signal(SIGTERM, sigterm_handler); /* Termination (ANSI).  */
+ 
+     show_banner(argc, argv, options);
++    av_log(NULL, AV_LOG_INFO, "This is a modified version of software ffplay in order\n");
++    av_log(NULL, AV_LOG_INFO, "to collect AppQoE metrics during video playing. \n");
++    av_log(NULL, AV_LOG_INFO, "These changes were made at: \n");
++    av_log(NULL, AV_LOG_INFO, "    Federal University of Rio Grande do Sul \n");
++    av_log(NULL, AV_LOG_INFO, "    Institute of Informatics. \n");
+ 
+     parse_options(NULL, argc, argv, options, opt_input_file);
+ 
