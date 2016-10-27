@@ -160,15 +160,15 @@ def topology(run_number, stream_name, nr_of_clients):
 
     """ Creating N UAV (configured by CONF_UAV_NUMBER)"""
     print '*** Creating UAVs (Stations)'
-    uav_list.append(net.addStation('sta1', mac='00:00:00:00:00:01', ip='10.0.0.1/24', min_x=40, max_x=66, min_y=20, max_y=66, wlans=1))
-    uav_list.append(net.addStation('sta2', mac='00:00:00:00:00:02', ip='10.0.0.2/24', min_x=67, max_x=133, min_y=20, max_y=66, wlans=1))
-    uav_list.append(net.addStation('sta3', mac='00:00:00:00:00:03', ip='10.0.0.3/24', min_x=134, max_x=180, min_y=20, max_y=66, wlans=1))
-    uav_list.append(net.addStation('sta4', mac='00:00:00:00:00:04', ip='10.0.0.4/24', min_x=40, max_x=66, min_y=67, max_y=133, wlans=1))
-    uav_list.append(net.addStation('sta5', mac='00:00:00:00:00:05', ip='10.0.0.5/24', min_x=67, max_x=133, min_y=67, max_y=133, wlans=1))
-    uav_list.append(net.addStation('sta6', mac='00:00:00:00:00:06', ip='10.0.0.6/24', min_x=134, max_x=180, min_y=67, max_y=133, wlans=1))
-    uav_list.append(net.addStation('sta7', mac='00:00:00:00:00:07', ip='10.0.0.7/24', min_x=40, max_x=66, min_y=134, max_y=160, wlans=1))
-    uav_list.append(net.addStation('sta8', mac='00:00:00:00:00:08', ip='10.0.0.8/24', min_x=67, max_x=133, min_y=134, max_y=160, wlans=1))
-    uav_list.append(net.addStation('sta9', mac='00:00:00:00:00:09', ip='10.0.0.9/24', min_x=134, max_x=180, min_y=134, max_y=160, wlans=1))
+    uav_list.append(net.addStation('sta1', mac='33:33:33:00:00:01', ip='10.0.0.1/24', min_x=60, max_x=66, min_y=60, max_y=66, wlans=1))
+    uav_list.append(net.addStation('sta2', mac='33:33:33:00:00:02', ip='10.0.0.2/24', min_x=67, max_x=133, min_y=60, max_y=66, wlans=1))
+    uav_list.append(net.addStation('sta3', mac='33:33:33:00:00:03', ip='10.0.0.3/24', min_x=134, max_x=140, min_y=60, max_y=66, wlans=1))
+    uav_list.append(net.addStation('sta4', mac='33:33:33:00:00:04', ip='10.0.0.4/24', min_x=60, max_x=66, min_y=67, max_y=133, wlans=1))
+    uav_list.append(net.addStation('sta5', mac='33:33:33:00:00:05', ip='10.0.0.5/24', min_x=67, max_x=133, min_y=67, max_y=133, wlans=1))
+    uav_list.append(net.addStation('sta6', mac='33:33:33:00:00:06', ip='10.0.0.6/24', min_x=134, max_x=140, min_y=67, max_y=133, wlans=1))
+    uav_list.append(net.addStation('sta7', mac='33:33:33:00:00:07', ip='10.0.0.7/24', min_x=60, max_x=66, min_y=134, max_y=140, wlans=1))
+    uav_list.append(net.addStation('sta8', mac='33:33:33:00:00:08', ip='10.0.0.8/24', min_x=67, max_x=133, min_y=134, max_y=140, wlans=1))
+    uav_list.append(net.addStation('sta9', mac='33:33:33:00:00:09', ip='10.0.0.9/24', min_x=134, max_x=140, min_y=134, max_y=140, wlans=1))
 
     print "*** Creating static Guaranis (Switch + AP)"
     ap_ssid = 'ssid_dtn'
@@ -199,9 +199,9 @@ def topology(run_number, stream_name, nr_of_clients):
 
     h2_apid = random.randint(0, 8)
     print "*** Creating Hosts and adding links..."
-    h1 = net.addHost('h1', mac='00:00:00:00:01:91', ip='10.0.0.91/24')
+    h1 = net.addHost('h1', mac='33:33:33:00:01:91', ip='10.0.0.91/24')
     net.addLink(h1, ap_list[1])
-    h2 = net.addHost('h2', mac='00:00:00:00:01:92', ip='10.0.0.92/24')
+    h2 = net.addHost('h2', mac='33:33:33:00:01:92', ip='10.0.0.92/24')
     net.addLink(h2, ap_list[h2_apid])
 
     # print '*** Adding Mesh network among Stations'
@@ -213,7 +213,7 @@ def topology(run_number, stream_name, nr_of_clients):
     # net.meshRouting('custom')
 
     # """uncomment to plot graph"""
-    # net.plotGraph(max_x=200, max_y=200)
+    net.plotGraph(max_x=200, max_y=200)
 
     print '*** Starting network'
     net.build()
@@ -230,7 +230,7 @@ def topology(run_number, stream_name, nr_of_clients):
     net.seed(20)
     # Starting Mobility
     net.startMobility(startTime=0, model='RandomWayPoint',
-                      min_x=40, max_x=160, min_y=40, max_y=200, min_v=1, max_v=2)
+                     min_x=50, max_x=150, min_y=50, max_y=150, min_v=1, max_v=2)
 
     # Run FFServer on Stations
     # Running all servers to select a random source
@@ -241,7 +241,7 @@ def topology(run_number, stream_name, nr_of_clients):
 
     # Wait for ffservers to initialize
     # and stations to go to initial position
-    time.sleep(5)
+    time.sleep(8)
 
     print '**** Running Exp {0:d} of stream {1:s} scenario {2:s}'. \
         format(run_number, stream_name, EXP_LOG_NAME[nr_of_clients])
