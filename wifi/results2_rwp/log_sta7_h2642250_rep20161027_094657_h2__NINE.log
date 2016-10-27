@@ -1,0 +1,20 @@
+ffplay version N-81912-g711bfb3 Copyright (c) 2003-2016 the FFmpeg developers
+  built with gcc 4.8 (Ubuntu 4.8.4-2ubuntu1~14.04.3)
+  configuration: --prefix=/home/mininet/ffmpeg_build --pkg-config-flags=--static --extra-cflags=-I/home/mininet/ffmpeg_build/include --extra-ldflags=-L/home/mininet/ffmpeg_build/lib --bindir=/home/mininet/bin --enable-gpl --enable-libass --enable-libfdk-aac --enable-libfreetype --enable-libmp3lame --enable-libopus --enable-libtheora --enable-libvorbis --enable-libvpx --enable-libx264 --enable-libx265 --enable-nonfree
+  libavutil      55. 32.100 / 55. 32.100
+  libavcodec     57. 60.101 / 57. 60.101
+  libavformat    57. 51.103 / 57. 51.103
+  libavdevice    57.  0.102 / 57.  0.102
+  libavfilter     6. 63.100 /  6. 63.100
+  libswscale      4.  1.100 /  4.  1.100
+  libswresample   2.  2.100 /  2.  2.100
+  libpostproc    54.  0.100 / 54.  0.100
+This is a modified version of software ffplay in order
+to collect AppQoE metrics during video playing. 
+These changes were made at: 
+    Federal University of Rio Grande do Sul 
+    Institute of Informatics. 
+    nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0       nan    :  0.000 fd=   0 aq=    0KB vq=    0KB sq=    0B f=0/0   [tcp @ 0x7fde8c002dc0] Connection to tcp://10.0.0.7:8007 failed: No route to host
+http://10.0.0.7:8007/h2642250: No route to host
+UFRGS Metrics: init_time=0.000000; stall_count=0; stall_time=0.000000 
+
