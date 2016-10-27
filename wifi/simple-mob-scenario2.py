@@ -34,12 +34,12 @@ FFServer conf file name: ffserver-<host>.conf
 """
 
 # Configurations
-OF_CONTROLLER_IP = '143.54.12.179'
+OF_CONTROLLER_IP = '127.0.0.1'
 OF_CONTROLLER_PORT = 6633
 
 # FFMpeg Binaries
-FFSERVER_BIN = '/home/mininet/bin/ffserver'
-FFPLAY_BIN = '/home/mininet/bin/ffplay'
+FFSERVER_BIN = '/home/iulisloi/bin/ffserver'
+FFPLAY_BIN = '/home/iulisloi/bin/ffplay'
 
 # Number of UAVs
 CONF_UAV_NUMBER = 9
@@ -99,7 +99,7 @@ def uav_get_xbase(uav_index):
 
 def runFFServer(server_host):
     termTitle = 'FFServer on {0:s}'.format(server_host.name)
-    conf_path = '/home/mininet/ffserver/'
+    conf_path = '/home/iulisloi/ffserver'
     ffserver_cmd = '{0:s} -f {1:s}ffserver-{2:s}.conf'.format(
         FFSERVER_BIN, conf_path, server_host.name)
     # print '*** Starting server: ' + ffserver_cmd
