@@ -34,7 +34,7 @@ FFServer conf file name: ffserver-<host>.conf
 """
 
 # Configurations
-OF_CONTROLLER_IP = '127.0.0.1'
+OF_CONTROLLER_IP = '143.54.12.179'
 OF_CONTROLLER_PORT = 6633
 
 # FFMpeg Binaries
@@ -99,14 +99,13 @@ def uav_get_xbase(uav_index):
 
 def runFFServer(server_host):
     termTitle = 'FFServer on {0:s}'.format(server_host.name)
-    conf_path = '/home/iulisloi/ffserver'
+    conf_path = '/home/iulisloi/ffserver/'
     ffserver_cmd = '{0:s} -f {1:s}ffserver-{2:s}.conf'.format(
         FFSERVER_BIN, conf_path, server_host.name)
-    # print '*** Starting server: ' + ffserver_cmd
-    po_tunnel, po_terminal = makeTerm(
+    print '*** Starting server: ' + ffserver_cmd
+    po_terminal = makeTerm(
         server_host, title=termTitle, cmd=ffserver_cmd)
-    return po_tunnel, po_terminal
-
+    return po_terminal
 
 def runFFPlay(player_host, server_host, stream_name, exp_name, exp_timestr=''):
     """ List of ffservers """
@@ -130,9 +129,9 @@ def runFFPlay(player_host, server_host, stream_name, exp_name, exp_timestr=''):
         .format(FFPLAY_BIN, stream_url, logfile_name)
     termTitle = 'FFPlayer from {0:s}'.format(server_host.name)
     # print '*** Starting client: ' + ffplayer_cmd
-    po_tunnel, po_terminal = makeTerm(
+    po_terminal = makeTerm(
         player_host, title=termTitle, cmd=ffplayer_cmd)
-    return po_tunnel, po_terminal
+    return po_terminal
 
 
 def topology(run_number, stream_name, nr_of_clients):
@@ -160,27 +159,27 @@ def topology(run_number, stream_name, nr_of_clients):
 
     """ Creating N UAV (configured by CONF_UAV_NUMBER)"""
     print '*** Creating UAVs (Stations)'
-    uav_list.append(net.addStation('sta1', mac='33:33:33:00:00:01', ip='10.0.0.1/24', min_x=60, max_x=66, min_y=60, max_y=66, wlans=1))
-    uav_list.append(net.addStation('sta2', mac='33:33:33:00:00:02', ip='10.0.0.2/24', min_x=67, max_x=133, min_y=60, max_y=66, wlans=1))
-    uav_list.append(net.addStation('sta3', mac='33:33:33:00:00:03', ip='10.0.0.3/24', min_x=134, max_x=140, min_y=60, max_y=66, wlans=1))
-    uav_list.append(net.addStation('sta4', mac='33:33:33:00:00:04', ip='10.0.0.4/24', min_x=60, max_x=66, min_y=67, max_y=133, wlans=1))
-    uav_list.append(net.addStation('sta5', mac='33:33:33:00:00:05', ip='10.0.0.5/24', min_x=67, max_x=133, min_y=67, max_y=133, wlans=1))
-    uav_list.append(net.addStation('sta6', mac='33:33:33:00:00:06', ip='10.0.0.6/24', min_x=134, max_x=140, min_y=67, max_y=133, wlans=1))
-    uav_list.append(net.addStation('sta7', mac='33:33:33:00:00:07', ip='10.0.0.7/24', min_x=60, max_x=66, min_y=134, max_y=140, wlans=1))
-    uav_list.append(net.addStation('sta8', mac='33:33:33:00:00:08', ip='10.0.0.8/24', min_x=67, max_x=133, min_y=134, max_y=140, wlans=1))
-    uav_list.append(net.addStation('sta9', mac='33:33:33:00:00:09', ip='10.0.0.9/24', min_x=134, max_x=140, min_y=134, max_y=140, wlans=1))
+    uav_list.append(net.addStation('sta1', mac='33:33:33:00:00:01', ip='10.0.0.1/24', min_x=60, max_x=66, min_y=60, max_y=66, wlans=1, range=45))
+    uav_list.append(net.addStation('sta2', mac='33:33:33:00:00:02', ip='10.0.0.2/24', min_x=67, max_x=133, min_y=60, max_y=66, wlans=1, range=45))
+    uav_list.append(net.addStation('sta3', mac='33:33:33:00:00:03', ip='10.0.0.3/24', min_x=134, max_x=140, min_y=60, max_y=66, wlans=1, range=45))
+    uav_list.append(net.addStation('sta4', mac='33:33:33:00:00:04', ip='10.0.0.4/24', min_x=60, max_x=66, min_y=67, max_y=133, wlans=1, range=45))
+    uav_list.append(net.addStation('sta5', mac='33:33:33:00:00:05', ip='10.0.0.5/24', min_x=67, max_x=133, min_y=67, max_y=133, wlans=1, range=45))
+    uav_list.append(net.addStation('sta6', mac='33:33:33:00:00:06', ip='10.0.0.6/24', min_x=134, max_x=140, min_y=67, max_y=133, wlans=1, range=45))
+    uav_list.append(net.addStation('sta7', mac='33:33:33:00:00:07', ip='10.0.0.7/24', min_x=60, max_x=66, min_y=134, max_y=140, wlans=1, range=45))
+    uav_list.append(net.addStation('sta8', mac='33:33:33:00:00:08', ip='10.0.0.8/24', min_x=67, max_x=133, min_y=134, max_y=140, wlans=1, range=45))
+    uav_list.append(net.addStation('sta9', mac='33:33:33:00:00:09', ip='10.0.0.9/24', min_x=134, max_x=140, min_y=134, max_y=140, wlans=1, range=45))
 
     print "*** Creating static Guaranis (Switch + AP)"
     ap_ssid = 'ssid_dtn'
-    ap_list.append(net.addBaseStation('ap1', dpid='0000000000001001', ssid=ap_ssid, mode='g', channel=1, position='50,50,0'))
-    ap_list.append(net.addBaseStation('ap2', dpid='0000000000001002', ssid=ap_ssid, mode='g', channel=6, position='100,50,0'))
-    ap_list.append(net.addBaseStation('ap3', dpid='0000000000001003', ssid=ap_ssid, mode='g', channel=11, position='145,45,0'))
-    ap_list.append(net.addBaseStation('ap4', dpid='0000000000001004', ssid=ap_ssid, mode='g', channel=6, position='45,100,0'))
-    ap_list.append(net.addBaseStation('ap5', dpid='0000000000001005', ssid=ap_ssid, mode='g', channel=11, position='110,112,0'))
-    ap_list.append(net.addBaseStation('ap6', dpid='0000000000001006', ssid=ap_ssid, mode='g', channel=1, position='150,95,0'))
-    ap_list.append(net.addBaseStation('ap7', dpid='0000000000001007', ssid=ap_ssid, mode='g', channel=11, position='50,150,0'))
-    ap_list.append(net.addBaseStation('ap8', dpid='0000000000001008', ssid=ap_ssid, mode='g', channel=1, position='110,165,0'))
-    ap_list.append(net.addBaseStation('ap9', dpid='0000000000001009', ssid=ap_ssid, mode='g', channel=6, position='156,157,0'))
+    ap_list.append(net.addBaseStation('ap1', dpid='0000000000001001', ssid=ap_ssid, mode='g', channel=1, position='37,30,0', range=50))
+    ap_list.append(net.addBaseStation('ap2', dpid='0000000000001002', ssid=ap_ssid, mode='g', channel=6, position='100,36,0', range=50))
+    ap_list.append(net.addBaseStation('ap3', dpid='0000000000001003', ssid=ap_ssid, mode='g', channel=11, position='160,38,0', range=50))
+    ap_list.append(net.addBaseStation('ap4', dpid='0000000000001004', ssid=ap_ssid, mode='g', channel=6, position='35,100,0', range=50))
+    ap_list.append(net.addBaseStation('ap5', dpid='0000000000001005', ssid=ap_ssid, mode='g', channel=11, position='100,94,0', range=50))
+    ap_list.append(net.addBaseStation('ap6', dpid='0000000000001006', ssid=ap_ssid, mode='g', channel=1, position='164,100,0', range=50))
+    ap_list.append(net.addBaseStation('ap7', dpid='0000000000001007', ssid=ap_ssid, mode='g', channel=11, position='35,165,0', range=50))
+    ap_list.append(net.addBaseStation('ap8', dpid='0000000000001008', ssid=ap_ssid, mode='g', channel=1, position='100,165,0', range=50))
+    ap_list.append(net.addBaseStation('ap9', dpid='0000000000001009', ssid=ap_ssid, mode='g', channel=6, position='166,166,0', range=50))
 
     print "*** Creating links between Guaranis"
     net.addLink(ap_list[0], ap_list[3])
@@ -213,7 +212,7 @@ def topology(run_number, stream_name, nr_of_clients):
     # net.meshRouting('custom')
 
     # """uncomment to plot graph"""
-    net.plotGraph(max_x=200, max_y=200)
+    # net.plotGraph(max_x=200, max_y=200)
 
     print '*** Starting network'
     net.build()
@@ -235,50 +234,54 @@ def topology(run_number, stream_name, nr_of_clients):
     # Run FFServer on Stations
     # Running all servers to select a random source
     for n in range(CONF_UAV_NUMBER):
-        p_tun, p_srv = runFFServer(uav_list[n])     # p_tun not used
+        p_srv = runFFServer(uav_list[n])     # p_tun not used
         p_servers.append(n)
         p_servers[n] = p_srv
 
     # Wait for ffservers to initialize
     # and stations to go to initial position
-    time.sleep(8)
+    time.sleep(5)
 
     print '**** Running Exp {0:d} of stream {1:s} scenario {2:s}'. \
-        format(run_number, stream_name, EXP_LOG_NAME[nr_of_clients])
+          format(run_number, stream_name, EXP_LOG_NAME[nr_of_clients])
 
-    # print '**** Running {0:d} clients...'.format(nr_of_clients)
+    # # print '**** Running {0:d} clients...'.format(nr_of_clients)
 
-    # get updated timestamp to name all logs
+    # # get updated timestamp to name all logs
     exp_timestr = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    # create a random list of UAVs
+    # # create a random list of UAVs
     selected_uavs_list = random.sample(xrange(CONF_UAV_NUMBER), nr_of_clients)
 
     for n in range(nr_of_clients):
         selected_uav = selected_uavs_list[n]
-        p1, p2 = runFFPlay(h1, uav_list[selected_uav], stream_name,
-                           EXP_LOG_NAME[nr_of_clients], exp_timestr)
+        p2 = runFFPlay(h1, uav_list[selected_uav], stream_name,
+                       EXP_LOG_NAME[nr_of_clients], exp_timestr)
         p_players.append(n)
         p_players[n] = p2
 
-    # additional host
-    p1, p2 = runFFPlay(h1, uav_list[selected_uav], stream_name,
-                       EXP_LOG_NAME[nr_of_clients], exp_timestr + '_h2_')
-    p_players.append(9)
-    p_players[9] = p2
+    # # additional host
+    selected_uav = random.sample(xrange(CONF_UAV_NUMBER), 1)[0]
+    p_h2 = runFFPlay(h2, uav_list[selected_uav], stream_name,
+                     EXP_LOG_NAME[nr_of_clients], exp_timestr + '_h2_')
 
-    print '**** Waiting for FFPlay...'
-    # print p2.wait()
+    # print '**** Waiting for FFPlay...'
+    print p_h2
+    p_h2[0].wait()
     for p2 in p_players:
+        print p2
         p2.wait()
 
     # # Wait for clients to exit
-    time.sleep(3)
+    # time.sleep(1)
 
     # # Stop all servers
     # # p_srv.terminate()
     for p_srv in p_servers:
         p_srv.terminate()
+
+    for uav in uav_list:
+        uav.terminate()
 
     print '*** Stopping network'
     net.stop()
