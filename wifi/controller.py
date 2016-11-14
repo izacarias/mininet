@@ -40,7 +40,7 @@ class SimpleSwitch13(app_manager.RyuApp):
         self.net = nx.DiGraph()
         self.stp = nx.Graph()
         # Set Log Level
-        self.logger.setLevel(logging.INFO)
+        self.logger.setLevel(logging.ERROR)
 
     # Utility function: lists all attributes in in object
     def ls(self, obj):
