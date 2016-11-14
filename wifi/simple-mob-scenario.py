@@ -176,7 +176,7 @@ def topology(run_number, stream_name, nr_of_clients):
         uav_list.append(net.addStation(sta_name, mac=sta_mac, ip=sta_ip,
                                        min_x=uav_min_x, max_x=uav_max_x,
                                        min_y=uav_min_y, max_y=uav_max_y,
-                                       wlans=2))
+                                       wlans=2, postion='100,100,0'))
 
     print "*** Creating static Guaranis (Switch + AP)"
     for i in xrange(1, CONF_GUARANI_NUMBER + 1):
@@ -224,7 +224,11 @@ def topology(run_number, stream_name, nr_of_clients):
     net.meshRouting('custom')
 
     # """uncomment to plot graph"""
-    # net.plotGraph(max_x=200, max_y=200)
+    net.plotGraph(max_x=200, max_y=200)
+    CLI(net)
+    print '*** Stopping network'
+    net.stop()
+    return
 
     print '*** Starting network'
     net.build()
