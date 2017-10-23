@@ -94,8 +94,8 @@ index 6d43191..1818a41 100644
              last_time = cur_time;
          }
      }
-+    if (get_master_clock(is) >= 60)
-+        do_exit(is);
++    // if (get_master_clock(is) >= 60)
++    //     do_exit(is);
  }
  
  /* allocate a picture (needs to do that in main thread to avoid
