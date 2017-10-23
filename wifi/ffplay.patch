@@ -1,7 +1,7 @@
-diff --git a/ffplay.c b/ffplay.c
-index 6d43191..1818a41 100644
---- a/ffplay.c
-+++ b/ffplay.c
+diff --git a/fftools/ffplay.c b/fftools/ffplay.c
+index 9f7774613c..12888616c3 100644
+--- a/fftools/ffplay.c
++++ b/fftools/ffplay.c
 @@ -30,6 +30,9 @@
  #include <signal.h>
  #include <stdint.h>
@@ -12,9 +12,9 @@ index 6d43191..1818a41 100644
  #include "libavutil/avstring.h"
  #include "libavutil/eval.h"
  #include "libavutil/mathematics.h"
-@@ -361,6 +364,17 @@ static AVPacket flush_pkt;
- static SDL_Window *window;
- static SDL_Renderer *renderer;
+@@ -388,6 +391,17 @@ static const struct TextureFormatEntry {
+     { AV_PIX_FMT_NONE,           SDL_PIXELFORMAT_UNKNOWN },
+ };
  
 +/* Video Metrics / INF / UFRGS / Iulisloi Zacarias */
 +static int vstall_stalled = 0;
@@ -30,7 +30,7 @@ index 6d43191..1818a41 100644
  #if CONFIG_AVFILTER
  static int opt_add_vfilter(void *optctx, const char *opt, const char *arg)
  {
-@@ -1233,6 +1247,9 @@ static void do_exit(VideoState *is)
+@@ -1291,6 +1305,9 @@ static void do_exit(VideoState *is)
      if (show_status)
          printf("\n");
      SDL_Quit();
@@ -40,7 +40,16 @@ index 6d43191..1818a41 100644
      av_log(NULL, AV_LOG_QUIET, "%s", "");
      exit(0);
  }
-@@ -1532,10 +1549,49 @@ static void video_refresh(void *opaque, double *remaining_time)
+@@ -1587,7 +1604,7 @@ static void video_refresh(void *opaque, double *remaining_time)
+     if (!display_disable && is->show_mode != SHOW_MODE_VIDEO && is->audio_st) {
+         time = av_gettime_relative() / 1000000.0;
+         if (is->force_refresh || is->last_vis_time + rdftspeed < time) {
+-            video_display(is);
++            // video_display(is);
+             is->last_vis_time = time;
+         }
+         *remaining_time = FFMIN(*remaining_time, is->last_vis_time + rdftspeed - time);
+@@ -1597,10 +1614,49 @@ static void video_refresh(void *opaque, double *remaining_time)
  retry:
          if (frame_queue_nb_remaining(&is->pictq) == 0) {
              // nothing to do, no picture to display in the queue
@@ -90,16 +99,16 @@ index 6d43191..1818a41 100644
              /* dequeue the picture */
              lastvp = frame_queue_peek_last(&is->pictq);
              vp = frame_queue_peek(&is->pictq);
-@@ -1665,6 +1721,8 @@ display:
-             last_time = cur_time;
-         }
+@@ -1688,7 +1744,7 @@ retry:
+ display:
+         /* display picture */
+         if (!display_disable && is->force_refresh && is->show_mode == SHOW_MODE_VIDEO && is->pictq.rindex_shown)
+-            video_display(is);
++            // video_display(is);
      }
-+    // if (get_master_clock(is) >= 60)
-+    //     do_exit(is);
- }
- 
- /* allocate a picture (needs to do that in main thread to avoid
-@@ -3255,6 +3313,9 @@ static void event_loop(VideoState *cur_stream)
+     is->force_refresh = 0;
+     if (show_status) {
+@@ -3266,6 +3322,9 @@ static void event_loop(VideoState *cur_stream)
      SDL_Event event;
      double incr, pos, frac;
  
@@ -109,7 +118,7 @@ index 6d43191..1818a41 100644
      for (;;) {
          double x;
          refresh_loop_wait_event(cur_stream, &event);
-@@ -3697,6 +3758,11 @@ int main(int argc, char **argv)
+@@ -3709,6 +3768,11 @@ int main(int argc, char **argv)
      signal(SIGTERM, sigterm_handler); /* Termination (ANSI).  */
  
      show_banner(argc, argv, options);
